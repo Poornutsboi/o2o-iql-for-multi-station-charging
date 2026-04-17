@@ -230,6 +230,7 @@ class DiscreteIQLAgent:
         value_loss = _expectile_loss(target_q_a - value_pred, self.expectile).mean()
         self.value_optimizer.zero_grad()
         value_loss.backward()
+        nn.utils.clip_grad_norm_(self.value.parameters(), max_norm=1.0)
         self.value_optimizer.step()
 
         with torch.no_grad():
@@ -241,6 +242,8 @@ class DiscreteIQLAgent:
         critic_loss = ((q1_pred - q_target).pow(2) + (q2_pred - q_target).pow(2)).mean()
         self.q_optimizer.zero_grad()
         critic_loss.backward()
+        nn.utils.clip_grad_norm_(self.q1.parameters(), max_norm=1.0)
+        nn.utils.clip_grad_norm_(self.q2.parameters(), max_norm=1.0)
         self.q_optimizer.step()
 
         with torch.no_grad():
@@ -253,6 +256,7 @@ class DiscreteIQLAgent:
         actor_loss = -(exp_adv * log_prob).mean()
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
+        nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
         self.actor_optimizer.step()
 
         self._soft_update_targets()

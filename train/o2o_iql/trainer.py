@@ -143,13 +143,14 @@ def run_online_finetuning(
     offline_temperature = agent.temperature
     online_temperature = getattr(args, "online_temperature", 1.0)
     raw_anneal = int(getattr(args, "anneal_steps", 0))
-    anneal_steps = raw_anneal if raw_anneal > 0 else int(args.online_steps * 0.3)
+    anneal_steps = raw_anneal if raw_anneal > 0 else args.online_steps
     ucb_coef = float(getattr(args, "ucb_coef", 1.0))
 
     def _anneal(start: float, end: float, step: int) -> float:
         if anneal_steps <= 0:
             return end
         t = min(step / anneal_steps, 1.0)
+        t = 0.5 * (1.0 - math.cos(math.pi * t))
         return start + (end - start) * t
 
     recent_returns: deque[float] = deque(maxlen=20)
@@ -312,7 +313,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--exp_adv_max", type=float, default=100.0)
     parser.add_argument("--hidden_dim", type=int, default=256)
 
-    parser.add_argument("--online_buffer_size", type=int, default=20_000)
+    parser.add_argument("--online_buffer_size", type=int, default=100_000)
     parser.add_argument("--online_sample_prob", type=float, default=0.6)
     parser.add_argument("--min_online_samples", type=int, default=2_000)
     parser.add_argument("--updates_per_step", type=int, default=1)
@@ -332,7 +333,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--online_expectile",
         type=float,
-        default=0.5,
+        default=0.6,
         help="Target expectile after annealing (0.5 = no conservatism)",
     )
     parser.add_argument(
