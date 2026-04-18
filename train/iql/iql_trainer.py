@@ -86,10 +86,25 @@ def evaluate_agent(
         rewards.append(episode_reward)
         lengths.append(episode_length)
 
+    rewards_arr = np.asarray(rewards, dtype=np.float64)
+    lengths_arr = np.asarray(lengths, dtype=np.float64)
+    mean_reward = float(rewards_arr.mean()) if rewards else 0.0
+    std_reward = float(rewards_arr.std(ddof=0)) if rewards else 0.0
+    p50_reward = float(np.quantile(rewards_arr, 0.50)) if rewards else 0.0
+    min_reward = float(rewards_arr.min()) if rewards else 0.0
+    max_reward = float(rewards_arr.max()) if rewards else 0.0
+    mean_length = float(lengths_arr.mean()) if lengths else 0.0
+
     return {
-        "mean_reward": float(np.mean(rewards)) if rewards else 0.0,
-        "std_reward": float(np.std(rewards)) if rewards else 0.0,
-        "mean_length": float(np.mean(lengths)) if lengths else 0.0,
+        "mean_reward": mean_reward,
+        "std_reward": std_reward,
+        "mean_length": mean_length,
+        "eval_return_mean": mean_reward,
+        "eval_return_std": std_reward,
+        "eval_return_p50": p50_reward,
+        "eval_return_min": min_reward,
+        "eval_return_max": max_reward,
+        "eval_episode_length_mean": mean_length,
         "n_eval_episodes": int(len(rewards)),
     }
 

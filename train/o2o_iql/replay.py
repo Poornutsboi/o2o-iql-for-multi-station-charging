@@ -30,6 +30,11 @@ class PriorityRefreshStats:
     entropy: float
     effective_sample_size: float
     top_priority: float
+    mean_priority: float
+    std_priority: float
+    max_priority: float
+    p90_priority: float
+    top_1pct_mass: float
     online_buffer_size: int
 
 
@@ -151,7 +156,10 @@ class PrioritizedOfflineBuffer:
     def __len__(self) -> int:
         return int(len(self.dataset))
 
-    def update_priorities(self, raw_scores: np.ndarray) -> tuple[float, float, float]:
+    def update_priorities(
+        self,
+        raw_scores: np.ndarray,
+    ) -> tuple[float, float, float, float, float, float, float]:
         if len(self.dataset) == 0:
             raise ValueError("Cannot update priorities for an empty offline dataset.")
 
@@ -170,7 +178,22 @@ class PrioritizedOfflineBuffer:
         entropy = float(-(probs * np.log(probs + 1e-12)).sum())
         ess = float(1.0 / np.square(probs).sum())
         top_priority = float(probs.max())
-        return entropy, ess, top_priority
+        mean_priority = float(probs.mean())
+        std_priority = float(probs.std(ddof=0))
+        max_priority = float(probs.max())
+        p90_priority = float(np.quantile(probs, 0.90))
+        top_k = max(1, int(np.ceil(0.01 * len(probs))))
+        top_1pct_mass = float(np.sort(probs)[-top_k:].sum())
+        return (
+            entropy,
+            ess,
+            top_priority,
+            mean_priority,
+            std_priority,
+            max_priority,
+            p90_priority,
+            top_1pct_mass,
+        )
 
     def sample(self, batch_size: int, rng: np.random.Generator) -> dict[str, np.ndarray]:
         if len(self.dataset) == 0:
@@ -277,12 +300,26 @@ class BalancedReplayManager:
             offline_dataset=self.offline_buffer.dataset,
             max_ratio=self.priority_max_ratio,
         )
-        entropy, ess, top_priority = self.offline_buffer.update_priorities(scores)
+        (
+            entropy,
+            ess,
+            top_priority,
+            mean_priority,
+            std_priority,
+            max_priority,
+            p90_priority,
+            top_1pct_mass,
+        ) = self.offline_buffer.update_priorities(scores)
         return PriorityRefreshStats(
             step=int(step),
             classifier_loss=float(classifier_loss),
             entropy=entropy,
             effective_sample_size=ess,
             top_priority=top_priority,
+            mean_priority=mean_priority,
+            std_priority=std_priority,
+            max_priority=max_priority,
+            p90_priority=p90_priority,
+            top_1pct_mass=top_1pct_mass,
             online_buffer_size=int(len(self.online_buffer)),
         )

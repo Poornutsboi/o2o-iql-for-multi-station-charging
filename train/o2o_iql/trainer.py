@@ -6,6 +6,7 @@ import json
 import math
 import os
 from collections import Counter, deque
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -44,8 +45,118 @@ def _mean_metrics(window: list[IQLUpdateMetrics]) -> dict[str, float]:
         "actor_loss": float(np.mean([item.actor_loss for item in window])),
         "critic_loss": float(np.mean([item.critic_loss for item in window])),
         "value_loss": float(np.mean([item.value_loss for item in window])),
+        "actor_grad_norm": float(np.mean([item.actor_grad_norm for item in window])),
+        "critic_grad_norm": float(np.mean([item.critic_grad_norm for item in window])),
+        "value_grad_norm": float(np.mean([item.value_grad_norm for item in window])),
+        "mean_q": float(np.mean([item.mean_q for item in window])),
+        "std_q": float(np.mean([item.std_q for item in window])),
+        "mean_target_q": float(np.mean([item.mean_target_q for item in window])),
+        "mean_v": float(np.mean([item.mean_v for item in window])),
+        "td_error_mean": float(np.mean([item.td_error_mean for item in window])),
+        "td_error_abs_mean": float(np.mean([item.td_error_abs_mean for item in window])),
+        "td_error_abs_p90": float(np.mean([item.td_error_abs_p90 for item in window])),
+        "policy_entropy": float(np.mean([item.policy_entropy for item in window])),
+        "action_std": float(np.mean([item.action_std for item in window])),
+        "log_prob_mean": float(np.mean([item.log_prob_mean for item in window])),
         "mean_advantage": float(np.mean([item.mean_advantage for item in window])),
+        "advantage_mean": float(np.mean([item.mean_advantage for item in window])),
+        "advantage_std": float(np.mean([item.std_advantage for item in window])),
+        "advantage_p90": float(np.mean([item.advantage_p90 for item in window])),
         "mean_weight": float(np.mean([item.mean_weight for item in window])),
+        "weight_mean": float(np.mean([item.mean_weight for item in window])),
+        "weight_std": float(np.mean([item.std_weight for item in window])),
+        "weight_max": float(np.max([item.max_weight for item in window])),
+        "positive_adv_ratio": float(np.mean([item.positive_adv_ratio for item in window])),
+    }
+
+
+def _default_run_id(args: argparse.Namespace) -> str:
+    scenario = Path(args.train_data_dir).name or "run"
+    return f"{args.algo}_{scenario}_seed{args.seed}"
+
+
+class StructuredRunLogger:
+    def __init__(self, log_dir: str, metrics_path: str) -> None:
+        self.log_dir = Path(log_dir)
+        self.metrics_path = Path(metrics_path)
+        self.stage_paths = {
+            "offline_eval": self.log_dir / "offline_eval.jsonl",
+            "online_train": self.log_dir / "online_train.jsonl",
+            "online_episode": self.log_dir / "online_episode.jsonl",
+            "priority_refresh": self.log_dir / "priority_refresh.jsonl",
+            "eval": self.log_dir / "eval.jsonl",
+        }
+        self.run_config_path = self.log_dir / "run_config.json"
+
+    def initialize(self) -> None:
+        self.log_dir.mkdir(parents=True, exist_ok=True)
+        for path in [self.metrics_path, *self.stage_paths.values()]:
+            path.write_text("", encoding="utf-8")
+
+    def write_run_config(self, payload: dict[str, object]) -> None:
+        self.run_config_path.write_text(
+            json.dumps(payload, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+    def log(self, payload: dict[str, object]) -> None:
+        _append_jsonl(str(self.metrics_path), payload)
+        stage = str(payload.get("stage", ""))
+        stage_path = self.stage_paths.get(stage)
+        if stage_path is not None:
+            _append_jsonl(str(stage_path), payload)
+
+
+def _build_run_config_payload(args: argparse.Namespace) -> dict[str, object]:
+    return {
+        "run_id": str(args.run_id),
+        "seed": int(args.seed),
+        "algo": str(args.algo),
+        "env_name": str(args.env_name),
+        "total_env_steps": int(args.online_steps),
+        "batch_size": int(args.batch_size),
+        "actor_lr": float(args.learning_rate),
+        "critic_lr": float(args.learning_rate),
+        "value_lr": float(args.learning_rate),
+        "discount": float(args.discount),
+        "tau": float(args.target_update_rate),
+        "expectile": float(args.expectile),
+        "temperature": float(args.temperature),
+        "eval_interval": int(args.eval_freq),
+        "priority_refresh_interval": int(args.priority_refresh_freq),
+        "n_bins": int(args.n_bins),
+        "max_queue_len": int(args.max_queue_len),
+        "online_buffer_size": int(args.online_buffer_size),
+        "updates_per_step": int(args.updates_per_step),
+        "start_training_after": int(args.start_training_after),
+    }
+
+
+def _build_eval_payload(
+    *,
+    stage: str,
+    run_id: str,
+    seed: int,
+    env_step: int,
+    evaluation: dict[str, float],
+) -> dict[str, object]:
+    return {
+        "stage": stage,
+        "run_id": run_id,
+        "seed": int(seed),
+        "env_step": int(env_step),
+        "step": int(env_step),
+        "progress": int(env_step),
+        "eval_return_mean": float(evaluation["eval_return_mean"]),
+        "eval_return_std": float(evaluation["eval_return_std"]),
+        "eval_return_p50": float(evaluation["eval_return_p50"]),
+        "eval_return_min": float(evaluation["eval_return_min"]),
+        "eval_return_max": float(evaluation["eval_return_max"]),
+        "eval_episode_length_mean": float(evaluation["eval_episode_length_mean"]),
+        "n_eval_episodes": int(evaluation["n_eval_episodes"]),
+        "mean_reward": float(evaluation["mean_reward"]),
+        "std_reward": float(evaluation["std_reward"]),
+        "mean_length": float(evaluation["mean_length"]),
     }
 
 
@@ -54,7 +165,7 @@ def run_offline_pretraining(
     offline_dataset: TransitionDataset,
     args: argparse.Namespace,
     rng: np.random.Generator,
-    metrics_path: str,
+    logger: StructuredRunLogger,
 ) -> None:
     updates_per_epoch = max(math.ceil(len(offline_dataset) / args.batch_size), 1)
     total_updates = int(args.offline_epochs) * updates_per_epoch
@@ -77,6 +188,8 @@ def run_offline_pretraining(
             epoch = update_idx // updates_per_epoch
             averaged = _mean_metrics(history[-updates_per_epoch:])
             averaged["stage"] = "offline"
+            averaged["run_id"] = str(args.run_id)
+            averaged["seed"] = int(args.seed)
             averaged["progress"] = int(update_idx)
             averaged["epoch"] = int(epoch)
             averaged["update"] = int(update_idx)
@@ -87,17 +200,32 @@ def run_offline_pretraining(
                 f"  value={averaged['value_loss']:.4f}"
                 f"  adv={averaged['mean_advantage']:.4f}"
             )
-            _append_jsonl(metrics_path, averaged)
+            logger.log(averaged)
 
 
-def _priority_stats_to_dict(stats: PriorityRefreshStats) -> dict[str, float | int | str]:
+def _priority_stats_to_dict(
+    *,
+    stats: PriorityRefreshStats,
+    run_id: str,
+    seed: int,
+    update_step: int,
+) -> dict[str, float | int | str]:
     return {
         "stage": "priority_refresh",
+        "run_id": run_id,
+        "seed": int(seed),
         "progress": int(stats.step),
         "step": int(stats.step),
+        "env_step": int(stats.step),
+        "update_step": int(update_step),
         "classifier_loss": float(stats.classifier_loss),
         "priority_entropy": float(stats.entropy),
         "priority_effective_sample_size": float(stats.effective_sample_size),
+        "priority_mean": float(stats.mean_priority),
+        "priority_std": float(stats.std_priority),
+        "priority_max": float(stats.max_priority),
+        "priority_p90": float(stats.p90_priority),
+        "priority_top_1pct_mass": float(stats.top_1pct_mass),
         "priority_top": float(stats.top_priority),
         "online_buffer_size": int(stats.online_buffer_size),
     }
@@ -110,7 +238,7 @@ def run_online_finetuning(
     eval_episode_bank: list[list],
     args: argparse.Namespace,
     rng: np.random.Generator,
-    metrics_path: str,
+    logger: StructuredRunLogger,
     save_path: str,
 ) -> None:
     """Balanced dual-buffer online fine-tuning with prioritized offline replay."""
@@ -157,6 +285,7 @@ def run_online_finetuning(
     best_eval_reward = float("-inf")
     metric_window: list[IQLUpdateMetrics] = []
     source_counter: Counter[str] = Counter()
+    episode_idx = 0
 
     try:
         obs, _ = env.reset(seed=args.seed)
@@ -183,14 +312,19 @@ def run_online_finetuning(
 
             refresh_stats = replay.maybe_refresh_priorities(step=step, rng=rng)
             if refresh_stats is not None:
-                payload = _priority_stats_to_dict(refresh_stats)
+                payload = _priority_stats_to_dict(
+                    stats=refresh_stats,
+                    run_id=str(args.run_id),
+                    seed=int(args.seed),
+                    update_step=int(agent.update_count),
+                )
                 print(
                     f"  Priority refresh step={refresh_stats.step:7d}"
                     f"  clf_loss={refresh_stats.classifier_loss:.4f}"
                     f"  ess={refresh_stats.effective_sample_size:.1f}"
                     f"  top_p={refresh_stats.top_priority:.6f}"
                 )
-                _append_jsonl(metrics_path, payload)
+                logger.log(payload)
 
             episode_return += float(reward)
             episode_length += 1
@@ -203,20 +337,30 @@ def run_online_finetuning(
                     source_counter[source] += 1
 
             if done:
+                episode_idx += 1
                 recent_returns.append(episode_return)
                 episode_payload = {
                     "stage": "online_episode",
+                    "run_id": str(args.run_id),
+                    "seed": int(args.seed),
+                    "episode_idx": int(episode_idx),
                     "progress": int(step),
                     "step": int(step),
+                    "env_step_end": int(step),
                     "episode_return": float(episode_return),
                     "episode_length": int(episode_length),
                     "online_buffer_size": int(len(replay.online_buffer)),
                     "recent_return_mean": float(np.mean(recent_returns)) if recent_returns else 0.0,
                     "recent_return_std": float(np.std(recent_returns)) if len(recent_returns) > 1 else 0.0,
+                    "online_return_recent_mean": float(np.mean(recent_returns)) if recent_returns else 0.0,
+                    "online_return_recent_std": float(np.std(recent_returns)) if len(recent_returns) > 1 else 0.0,
                     "expectile": float(agent.expectile),
                     "temperature": float(agent.temperature),
+                    "success": bool(terminated and not truncated),
+                    "terminated": bool(terminated),
+                    "truncated": bool(truncated),
                 }
-                _append_jsonl(metrics_path, episode_payload)
+                logger.log(episode_payload)
                 print(
                     f"  Online episode finished"
                     f"  step={step:7d}/{args.online_steps}"
@@ -231,22 +375,35 @@ def run_online_finetuning(
             if step % args.log_interval == 0 and metric_window:
                 window_size = min(len(metric_window), args.log_interval * args.updates_per_step)
                 averaged = _mean_metrics(metric_window[-window_size:])
+                offline_updates = int(source_counter.get("offline", 0))
+                online_updates = int(source_counter.get("online", 0))
+                total_updates = max(offline_updates + online_updates, 1)
                 averaged.update(
                     {
-                        "stage": "online",
+                        "stage": "online_train",
+                        "run_id": str(args.run_id),
+                        "seed": int(args.seed),
                         "progress": int(step),
                         "step": int(step),
+                        "env_step": int(step),
+                        "update_step": int(agent.update_count),
+                        "episode_idx": int(episode_idx + 1),
                         "online_buffer_size": int(len(replay.online_buffer)),
                         "recent_return_mean": float(np.mean(recent_returns)) if recent_returns else 0.0,
                         "recent_return_std": float(np.std(recent_returns)) if len(recent_returns) > 1 else 0.0,
-                        "offline_updates": int(source_counter.get("offline", 0)),
-                        "online_updates": int(source_counter.get("online", 0)),
+                        "online_return_recent_mean": float(np.mean(recent_returns)) if recent_returns else 0.0,
+                        "online_return_recent_std": float(np.std(recent_returns)) if len(recent_returns) > 1 else 0.0,
+                        "offline_updates": offline_updates,
+                        "online_updates": online_updates,
+                        "offline_sample_ratio": float(offline_updates / total_updates),
+                        "online_sample_ratio": float(online_updates / total_updates),
+                        "replay_size_online": int(len(replay.online_buffer)),
                         "expectile": float(agent.expectile),
                         "temperature": float(agent.temperature),
                     }
                 )
                 print(
-                    f"  Online step {step:7d}/{args.online_steps}"
+                    f"  Online train step {step:7d}/{args.online_steps}"
                     f"  actor={averaged['actor_loss']:.4f}"
                     f"  critic={averaged['critic_loss']:.4f}"
                     f"  value={averaged['value_loss']:.4f}"
@@ -255,7 +412,7 @@ def run_online_finetuning(
                     f"  temperature={agent.temperature:.2f}"
                     f"  src=off:{averaged['offline_updates']} on:{averaged['online_updates']}"
                 )
-                _append_jsonl(metrics_path, averaged)
+                logger.log(averaged)
                 source_counter.clear()
 
             if step % args.eval_freq == 0:
@@ -267,17 +424,23 @@ def run_online_finetuning(
                     max_queue_len=args.max_queue_len,
                     seed=args.seed + 10_000 + step,
                 )
-                evaluation.update({"stage": "eval", "progress": int(step), "step": int(step)})
+                evaluation_payload = _build_eval_payload(
+                    stage="eval",
+                    run_id=str(args.run_id),
+                    seed=int(args.seed),
+                    env_step=int(step),
+                    evaluation=evaluation,
+                )
                 print(
                     f"  Eval step={step:7d}"
-                    f"  mean_reward={evaluation['mean_reward']:.2f}"
-                    f"  std={evaluation['std_reward']:.2f}"
+                    f"  mean_reward={evaluation_payload['eval_return_mean']:.2f}"
+                    f"  std={evaluation_payload['eval_return_std']:.2f}"
                 )
-                _append_jsonl(metrics_path, evaluation)
-                if evaluation["mean_reward"] > best_eval_reward:
-                    best_eval_reward = evaluation["mean_reward"]
+                logger.log(evaluation_payload)
+                if float(evaluation_payload["eval_return_mean"]) > best_eval_reward:
+                    best_eval_reward = float(evaluation_payload["eval_return_mean"])
                     best_path = os.path.join(save_path, "o2o_iql_best.pt")
-                    agent.save(best_path, extra_state={"best_eval": evaluation, "step": step})
+                    agent.save(best_path, extra_state={"best_eval": evaluation_payload, "step": step})
                     print(f"  Saved new best checkpoint -> {best_path}")
 
             if step % args.checkpoint_freq == 0:
@@ -371,6 +534,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--pretrained_checkpoint", type=str, default="")
     parser.add_argument("--save_path", type=str, default="train/o2o_iql/checkpoints")
     parser.add_argument("--log_dir", type=str, default="logs/o2o_iql")
+    parser.add_argument("--run_id", type=str, default="")
+    parser.add_argument("--algo", type=str, default="full_o2o_iql")
+    parser.add_argument("--env_name", type=str, default="multi_station_ev_charging")
 
     return parser.parse_args()
 
@@ -378,6 +544,8 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     args.device = _resolve_device(args.device)
+    if not args.run_id:
+        args.run_id = _default_run_id(args)
     rng = np.random.default_rng(args.seed)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -385,13 +553,16 @@ def main() -> None:
     _ensure_dir(args.save_path)
     _ensure_dir(args.log_dir)
     metrics_path = os.path.join(args.log_dir, "metrics.jsonl")
-    with open(metrics_path, "w", encoding="utf-8"):
-        pass
+    logger = StructuredRunLogger(log_dir=args.log_dir, metrics_path=metrics_path)
+    logger.initialize()
+    logger.write_run_config(_build_run_config_payload(args))
 
     print("=== O2O IQL with Balanced Dual Buffers ===")
     print(f"  device={args.device}")
+    print(f"  run_id={args.run_id}")
     print(f"  save_path={args.save_path}")
     print(f"  log_dir={args.log_dir}")
+    print(f"  eval_freq={args.eval_freq}")
 
     if args.offline_dataset_cache and Path(args.offline_dataset_cache).exists():
         print(f"  Loading cached offline dataset from '{args.offline_dataset_cache}'")
@@ -432,7 +603,7 @@ def main() -> None:
             offline_dataset=offline_dataset,
             args=args,
             rng=rng,
-            metrics_path=metrics_path,
+            logger=logger,
         )
         offline_ckpt = os.path.join(args.save_path, "offline_iql.pt")
         agent.save(offline_ckpt, extra_state={"stage": "offline"})
@@ -451,12 +622,18 @@ def main() -> None:
         max_queue_len=args.max_queue_len,
         seed=args.seed + 5_000,
     )
-    offline_eval.update({"stage": "offline_eval", "progress": 0, "step": 0})
-    print(
-        f"  Offline eval mean_reward={offline_eval['mean_reward']:.2f}"
-        f"  std={offline_eval['std_reward']:.2f}"
+    offline_eval_payload = _build_eval_payload(
+        stage="offline_eval",
+        run_id=str(args.run_id),
+        seed=int(args.seed),
+        env_step=0,
+        evaluation=offline_eval,
     )
-    _append_jsonl(metrics_path, offline_eval)
+    print(
+        f"  Offline eval mean_reward={offline_eval_payload['eval_return_mean']:.2f}"
+        f"  std={offline_eval_payload['eval_return_std']:.2f}"
+    )
+    logger.log(offline_eval_payload)
 
     if args.online_steps > 0:
         train_episode_bank = load_episode_bank_from_dir(
@@ -470,7 +647,7 @@ def main() -> None:
             eval_episode_bank=eval_episode_bank,
             args=args,
             rng=rng,
-            metrics_path=metrics_path,
+            logger=logger,
             save_path=args.save_path,
         )
 
@@ -482,7 +659,7 @@ def main() -> None:
         final_path,
         extra_state={
             "stage": "online" if args.online_steps > 0 else "offline",
-            "offline_eval": offline_eval,
+            "offline_eval": offline_eval_payload,
         },
     )
     print(f"  Saved final checkpoint -> {final_path}")

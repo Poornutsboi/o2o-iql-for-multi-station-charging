@@ -143,6 +143,7 @@ def _build_trainer_command(
     seed: int,
     pretrained_checkpoint: Path | None,
     online_steps: int,
+    run_id: str,
 ) -> list[str]:
     cmd = [
         sys.executable,
@@ -165,6 +166,12 @@ def _build_trainer_command(
         str(log_dir),
         "--seed",
         str(int(seed)),
+        "--run_id",
+        run_id,
+        "--algo",
+        "full_o2o_iql",
+        "--env_name",
+        "multi_station_ev_charging",
         "--n_bins",
         str(int(hp.n_bins)),
         "--max_queue_len",
@@ -480,6 +487,7 @@ def main() -> None:
             seed=pretrain_spec.seed,
             pretrained_checkpoint=None,
             online_steps=0,
+            run_id="shared_pretrain_seed42",
         )
         pretrain_spec.command = pretrain_cmd
         if args.dry_run:
@@ -603,6 +611,7 @@ def main() -> None:
                 seed=run_spec.seed,
                 pretrained_checkpoint=shared_ckpt,
                 online_steps=hp.online_steps,
+                run_id=f"full_o2o_iql_{scenario}_seed{int(seed)}",
             )
             run_spec.command = run_cmd
             if args.dry_run:

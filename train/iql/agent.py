@@ -122,8 +122,26 @@ class IQLUpdateMetrics:
     actor_loss: float
     critic_loss: float
     value_loss: float
+    actor_grad_norm: float
+    critic_grad_norm: float
+    value_grad_norm: float
+    mean_q: float
+    std_q: float
+    mean_target_q: float
+    mean_v: float
+    td_error_mean: float
+    td_error_abs_mean: float
+    td_error_abs_p90: float
+    policy_entropy: float
+    action_std: float
+    log_prob_mean: float
     mean_advantage: float
+    std_advantage: float
+    advantage_p90: float
     mean_weight: float
+    std_weight: float
+    max_weight: float
+    positive_adv_ratio: float
 
 
 class DiscreteIQLAgent:
@@ -230,7 +248,7 @@ class DiscreteIQLAgent:
         value_loss = _expectile_loss(target_q_a - value_pred, self.expectile).mean()
         self.value_optimizer.zero_grad()
         value_loss.backward()
-        nn.utils.clip_grad_norm_(self.value.parameters(), max_norm=1.0)
+        value_grad_norm = float(nn.utils.clip_grad_norm_(self.value.parameters(), max_norm=1.0))
         self.value_optimizer.step()
 
         with torch.no_grad():
@@ -242,8 +260,8 @@ class DiscreteIQLAgent:
         critic_loss = ((q1_pred - q_target).pow(2) + (q2_pred - q_target).pow(2)).mean()
         self.q_optimizer.zero_grad()
         critic_loss.backward()
-        nn.utils.clip_grad_norm_(self.q1.parameters(), max_norm=1.0)
-        nn.utils.clip_grad_norm_(self.q2.parameters(), max_norm=1.0)
+        critic_params = list(self.q1.parameters()) + list(self.q2.parameters())
+        critic_grad_norm = float(nn.utils.clip_grad_norm_(critic_params, max_norm=1.0))
         self.q_optimizer.step()
 
         with torch.no_grad():
@@ -252,22 +270,49 @@ class DiscreteIQLAgent:
             advantages = target_q_a - self.value(obs)
             exp_adv = torch.exp(self.temperature * advantages).clamp(max=self.exp_adv_max)
 
-        log_prob = self.actor.log_prob(obs, actions, action_masks)
+        dist = self.actor.distribution(obs, action_masks)
+        log_prob = dist.log_prob(actions)
         actor_loss = -(exp_adv * log_prob).mean()
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
-        nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0)
+        actor_grad_norm = float(nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=1.0))
         self.actor_optimizer.step()
 
         self._soft_update_targets()
         self.update_count += 1
 
+        with torch.no_grad():
+            q_mean_selected = (q1_pred + q2_pred) / 2.0
+            td_error = q_mean_selected - q_target
+            abs_td_error = td_error.abs()
+            advantage_p90 = float(torch.quantile(advantages, 0.90).item())
+            td_error_abs_p90 = float(torch.quantile(abs_td_error, 0.90).item())
+            policy_entropy = float(dist.entropy().mean().item())
+
         return IQLUpdateMetrics(
             actor_loss=float(actor_loss.item()),
             critic_loss=float(critic_loss.item()),
             value_loss=float(value_loss.item()),
+            actor_grad_norm=actor_grad_norm,
+            critic_grad_norm=critic_grad_norm,
+            value_grad_norm=value_grad_norm,
+            mean_q=float(q_mean_selected.mean().item()),
+            std_q=float(q_mean_selected.std(unbiased=False).item()),
+            mean_target_q=float(q_target.mean().item()),
+            mean_v=float(value_pred.mean().item()),
+            td_error_mean=float(td_error.mean().item()),
+            td_error_abs_mean=float(abs_td_error.mean().item()),
+            td_error_abs_p90=td_error_abs_p90,
+            policy_entropy=policy_entropy,
+            action_std=0.0,
+            log_prob_mean=float(log_prob.mean().item()),
             mean_advantage=float(advantages.mean().item()),
+            std_advantage=float(advantages.std(unbiased=False).item()),
+            advantage_p90=advantage_p90,
             mean_weight=float(exp_adv.mean().item()),
+            std_weight=float(exp_adv.std(unbiased=False).item()),
+            max_weight=float(exp_adv.max().item()),
+            positive_adv_ratio=float((advantages > 0).to(torch.float32).mean().item()),
         )
 
     def _soft_update_targets(self) -> None:
