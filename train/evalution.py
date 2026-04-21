@@ -2,9 +2,9 @@
 
 Currently implemented baselines:
     - all-no-split: always choose the canonical no-split action
-    - greedy-downstream-min-queue: choose the downstream station with the
-      shortest queue, then use a valid split action close to a balanced split
-    - greedy-no-split: choose among the current station and downstream stations
+    - station-assignment: choose the downstream station with the shortest queue
+      and route all charging there (minimise first-station fraction)
+    - greedy-split: choose among the current station and downstream stations
       by shortest queue, then by nearest travel time; if the current station
       wins, take no-split, otherwise take a valid split toward the selected
       station
@@ -93,14 +93,15 @@ def _all_no_split_action(env: EpisodeBankChargingEnv) -> int:
     return no_split_action_int(n_bins=env.n_bins, num_stations=env.num_stations)
 
 
-def _greedy_downstream_min_queue_action(env: EpisodeBankChargingEnv) -> int:
-    """Choose the downstream station with the shortest current queue.
+def _station_assignment_action(env: EpisodeBankChargingEnv) -> int:
+    """Assign the vehicle to the downstream station with the shortest queue for full charging.
 
     The heuristic is:
     1. Look only at downstream stations for the pending vehicle.
     2. Prefer the station with the smallest queue length.
     3. Break ties by smaller total queued waiting time, then route order.
-    4. For that station, pick a valid split action closest to a balanced split.
+    4. For that station, pick a valid split action with the smallest frac_bin
+       (i.e. maximise charging at the downstream station).
     5. Fall back to no-split if no valid split exists.
     """
     if env.pending_vehicle is None:
@@ -150,15 +151,12 @@ def _greedy_downstream_min_queue_action(env: EpisodeBankChargingEnv) -> int:
 
     chosen_station = min(valid_split_actions, key=_queue_score)
     split_candidates = valid_split_actions[chosen_station]
-    target_frac_bin = (env.n_bins - 1) / 2.0
-    chosen_action = min(
-        split_candidates,
-        key=lambda item: (abs(item[1] - target_frac_bin), item[1]),
-    )[0]
+    # Minimise frac_bin so that as much charging as possible happens at the downstream station.
+    chosen_action = min(split_candidates, key=lambda item: (item[1], item[0]))[0]
     return int(chosen_action)
 
 
-def _greedy_no_split_action(env: EpisodeBankChargingEnv) -> int:
+def _greedy_split_action(env: EpisodeBankChargingEnv) -> int:
     """Choose the station with the smallest queue, preferring the nearest one.
 
     Candidate stations include the current station itself and all downstream
@@ -229,8 +227,8 @@ def _greedy_no_split_action(env: EpisodeBankChargingEnv) -> int:
 
 BASELINES: dict[str, BaselineFn] = {
     "all-no-split": _all_no_split_action,
-    "greedy-downstream-min-queue": _greedy_downstream_min_queue_action,
-    "greedy-no-split": _greedy_no_split_action,
+    "station-assignment": _station_assignment_action,
+    "greedy-split": _greedy_split_action,
 }
 
 
