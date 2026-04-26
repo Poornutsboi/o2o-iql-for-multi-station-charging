@@ -38,6 +38,8 @@ def _apply_patch(patch_name: str | None) -> None:
 
 def _base_argv(save_path: str, log_dir: str, seed: int) -> list[str]:
     return [
+        "--demand_dir", configs.OFFLINE_DEMAND_DIR,
+        "--solution_dir", configs.OFFLINE_SOLUTION_DIR,
         "--train_data_dir", configs.TRAIN_DATA_DIR,
         "--save_path", save_path,
         "--log_dir", log_dir,
@@ -76,6 +78,8 @@ def _pretrain_argv() -> list[str]:
     Path(save_path).mkdir(parents=True, exist_ok=True)
     Path(log_dir).mkdir(parents=True, exist_ok=True)
     return [
+        "--demand_dir", configs.OFFLINE_DEMAND_DIR,
+        "--solution_dir", configs.OFFLINE_SOLUTION_DIR,
         "--train_data_dir", configs.TRAIN_DATA_DIR,
         "--save_path", save_path,
         "--log_dir", log_dir,

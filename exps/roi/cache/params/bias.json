@@ -1,0 +1,70 @@
+{
+  "split_name": "bias",
+  "horizon_minutes": 119634.0,
+  "n_episodes": 500,
+  "stations": [
+    {
+      "station_id": 0,
+      "capacity": 10,
+      "lambda_per_min": 0.0994784091479011,
+      "mu_per_min": 0.03220969728135107,
+      "n_arrivals": 11901,
+      "mean_duration": 31.046550710024366,
+      "rho": 0.30884614741628635
+    },
+    {
+      "station_id": 1,
+      "capacity": 25,
+      "lambda_per_min": 0.4499974923516726,
+      "mu_per_min": 0.03217577830598875,
+      "n_arrivals": 53835,
+      "mean_duration": 31.07927927927928,
+      "rho": 0.559423909590919
+    },
+    {
+      "station_id": 2,
+      "capacity": 18,
+      "lambda_per_min": 0.3172425898991925,
+      "mu_per_min": 0.03207264153733695,
+      "n_arrivals": 37953,
+      "mean_duration": 31.17922166890628,
+      "rho": 0.5495209462936029
+    },
+    {
+      "station_id": 3,
+      "capacity": 12,
+      "lambda_per_min": 0.075170938027651,
+      "mu_per_min": 0.03222627554128533,
+      "n_arrivals": 8993,
+      "mean_duration": 31.030579339486266,
+      "rho": 0.1943831463742191
+    },
+    {
+      "station_id": 4,
+      "capacity": 12,
+      "lambda_per_min": 0.0762074326696424,
+      "mu_per_min": 0.03223707705853026,
+      "n_arrivals": 9117,
+      "mean_duration": 31.020182077437752,
+      "rho": 0.19699736975553211
+    },
+    {
+      "station_id": 5,
+      "capacity": 22,
+      "lambda_per_min": 0.08166574719561329,
+      "mu_per_min": 0.03202270760678606,
+      "n_arrivals": 9770,
+      "mean_duration": 31.227840327533265,
+      "rho": 0.11592022334787767
+    },
+    {
+      "station_id": 6,
+      "capacity": 18,
+      "lambda_per_min": 0.07640804453583429,
+      "mu_per_min": 0.03204186719853619,
+      "n_arrivals": 9141,
+      "mean_duration": 31.209167487145827,
+      "rho": 0.1324795255157861
+    }
+  ]
+}

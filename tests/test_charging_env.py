@@ -180,6 +180,27 @@ class ChargingEnvTests(unittest.TestCase):
         self.assertEqual(observation["commitment_features"]["commitment_count"], [0, 0, 0])
         self.assertEqual(info["total_wait"], 0.0)
 
+    def test_load_imbalance_uses_capacity_normalized_assigned_demand(self) -> None:
+        env = MultiStationChargingEnv(
+            vehicles=[
+                Vehicle(vid=1, arrival_time=0.0, route=[0], duration=10.0),
+                Vehicle(vid=2, arrival_time=1.0, route=[1], duration=1.0),
+            ],
+            station_capacities=[1, 1],
+            n_bins=5,
+        )
+
+        env.reset()
+        env.step(no_split_action_int(n_bins=5, num_stations=2))
+        _observation, _reward, terminated, _truncated, info = env.step(
+            no_split_action_int(n_bins=5, num_stations=2)
+        )
+
+        self.assertTrue(terminated)
+        np.testing.assert_allclose(info["assigned_demand_by_station"], [10.0, 1.0])
+        np.testing.assert_allclose(info["normalized_assigned_demand_by_station"], [10.0, 1.0])
+        self.assertAlmostEqual(info["load_imbalance"], 9.0 / 11.0)
+
     def test_env_no_longer_accepts_reward_mode_argument(self) -> None:
         with self.assertRaises(TypeError):
             MultiStationChargingEnv(

@@ -2,9 +2,9 @@
 
 Currently implemented baselines:
     - all-no-split: always choose the canonical no-split action
-    - station-assignment: choose the route station (including the current
-      station) with the smallest queued waiting time and complete the full
-      charge there
+    - station-assignment: choose between the current station and the next
+      downstream station by a coarse local queue estimate, then complete the
+      full charge there
     - greedy-split: choose among the current station and downstream stations
       by shortest queue, then by nearest travel time; if the current station
       wins, take no-split, otherwise take a valid split toward the selected
@@ -44,6 +44,9 @@ from simulator.orchestrator import load_demand_vehicles_from_csv
 
 
 BaselineFn = Callable[[EpisodeBankChargingEnv], int]
+STATION_ASSIGNMENT_SWITCH_MARGIN = 6
+STATION_ASSIGNMENT_NEXT_QUEUE_ERROR_MEAN = 10.0
+STATION_ASSIGNMENT_NEXT_QUEUE_ERROR_STD = 3.0
 
 
 def _load_episode_paths(data_dir: str) -> list[Path]:
@@ -112,12 +115,12 @@ def _station_assignment_action(env: EpisodeBankChargingEnv) -> int:
 
 
 def _station_assignment_target_station(env: EpisodeBankChargingEnv) -> int:
-    """Choose the route station with the smallest queued waiting time.
+    """Choose a station with a limited local assignment heuristic.
 
-    The heuristic is:
-    1. Look at all valid stations on the route, including the current station.
-    2. Prefer the station with the smallest total queued waiting time.
-    3. Break ties by shorter travel time from the current station, then station id.
+    The heuristic intentionally avoids acting like an oracle:
+    1. Look only at the current station and the next distinct downstream station.
+    2. Add Gaussian observation error to the next station queue length.
+    3. Stay at the current station unless its visible queue is much longer.
     """
     if env.pending_vehicle is None:
         return env.num_stations
@@ -138,20 +141,32 @@ def _station_assignment_target_station(env: EpisodeBankChargingEnv) -> int:
             continue
         seen.add(station_id)
         candidate_stations.append(int(station_id))
+        if len(candidate_stations) >= 2:
+            break
 
     observation = env._current_observation()  # noqa: SLF001 - evaluation helper
     station_payloads = observation["sim_state"]["stations"]
 
-    def _queue_score(station_id: int) -> tuple[float, float, int]:
-        queue_waiting_time = station_payloads[station_id]["queue_waiting_time"]
-        travel_time = float(TRAVEL_MATRIX[current_station][station_id])
-        return (
-            float(sum(float(value) for value in queue_waiting_time)),
-            travel_time,
-            int(station_id),
-        )
+    current_queue_len = len(station_payloads[current_station]["queue_waiting_time"])
+    if len(candidate_stations) < 2:
+        return int(current_station)
 
-    return int(min(candidate_stations, key=_queue_score))
+    next_station = int(candidate_stations[1])
+    next_queue_len = len(station_payloads[next_station]["queue_waiting_time"])
+    rng = getattr(env, "np_random", None)
+    if rng is None:
+        observed_error = float(STATION_ASSIGNMENT_NEXT_QUEUE_ERROR_MEAN)
+    else:
+        observed_error = float(
+            rng.normal(
+                loc=float(STATION_ASSIGNMENT_NEXT_QUEUE_ERROR_MEAN),
+                scale=float(STATION_ASSIGNMENT_NEXT_QUEUE_ERROR_STD),
+            )
+        )
+    observed_next_queue_len = float(next_queue_len) + max(0.0, observed_error)
+    if current_queue_len >= observed_next_queue_len + int(STATION_ASSIGNMENT_SWITCH_MARGIN):
+        return int(next_station)
+    return int(current_station)
 
 
 def _station_assignment_step(env: EpisodeBankChargingEnv):
@@ -337,10 +352,18 @@ def _evaluate_single_episode(
             "episode_reward": float(episode_reward),
             "episode_length": int(episode_length),
             "episode_name": episode_path.name,
+            "vehicle_count": int(len(getattr(env, "_vehicle_total_wait", {}))),
+            "total_waiting_time": float(final_info.get("total_wait", 0.0)),
             "mean_waiting_time": float(final_info.get("mean_waiting_time", 0.0)),
             "p95_waiting_time": float(final_info.get("p95_waiting_time", 0.0)),
             "max_waiting_time": float(final_info.get("max_waiting_time", 0.0)),
             "load_imbalance": float(final_info.get("load_imbalance", 0.0)),
+            "assigned_demand_by_station": list(
+                final_info.get("assigned_demand_by_station", [])
+            ),
+            "normalized_assigned_demand_by_station": list(
+                final_info.get("normalized_assigned_demand_by_station", [])
+            ),
             "invalid_action_count": int(episode_invalid_actions),
             "decision_step_count": int(episode_length),
         }
@@ -401,6 +424,8 @@ def evaluate_baseline(
     p95_waiting_times = [float(record["p95_waiting_time"]) for record in records]
     max_waiting_times = [float(record["max_waiting_time"]) for record in records]
     load_imbalances = [float(record["load_imbalance"]) for record in records]
+    total_waiting_times = [float(record["total_waiting_time"]) for record in records]
+    vehicle_counts = [int(record["vehicle_count"]) for record in records]
     invalid_action_total = int(sum(int(record["invalid_action_count"]) for record in records))
     decision_step_total = int(sum(int(record["decision_step_count"]) for record in records))
 
@@ -410,6 +435,29 @@ def evaluate_baseline(
     p95_wait_arr = np.asarray(p95_waiting_times, dtype=np.float64)
     max_wait_arr = np.asarray(max_waiting_times, dtype=np.float64)
     imbalance_arr = np.asarray(load_imbalances, dtype=np.float64)
+    dataset_total_waiting_time = float(sum(total_waiting_times))
+    dataset_vehicle_count = int(sum(vehicle_counts))
+    episode_metrics = [
+        {
+            "episode_name": str(record["episode_name"]),
+            "episode_reward": float(record["episode_reward"]),
+            "episode_length": int(record["episode_length"]),
+            "vehicle_count": int(record["vehicle_count"]),
+            "total_waiting_time": float(record["total_waiting_time"]),
+            "mean_waiting_time": float(record["mean_waiting_time"]),
+            "p95_waiting_time": float(record["p95_waiting_time"]),
+            "max_waiting_time": float(record["max_waiting_time"]),
+            "cv_load_imbalance": float(record["load_imbalance"]),
+            "assigned_demand_by_station": [
+                float(value) for value in record.get("assigned_demand_by_station", [])
+            ],
+            "normalized_assigned_demand_by_station": [
+                float(value)
+                for value in record.get("normalized_assigned_demand_by_station", [])
+            ],
+        }
+        for record in records
+    ]
 
     return {
         "label": baseline_name,
@@ -426,6 +474,14 @@ def evaluate_baseline(
         "mean_p95_waiting_time": float(p95_wait_arr.mean()),
         "mean_max_waiting_time": float(max_wait_arr.mean()),
         "mean_load_imbalance": float(imbalance_arr.mean()),
+        "dataset_total_waiting_time": dataset_total_waiting_time,
+        "dataset_vehicle_count": dataset_vehicle_count,
+        "dataset_average_waiting_time": (
+            float(dataset_total_waiting_time / dataset_vehicle_count)
+            if dataset_vehicle_count > 0
+            else 0.0
+        ),
+        "mean_cv_load_imbalance": float(imbalance_arr.mean()),
         "invalid_action_rate": float(invalid_action_total / decision_step_total)
         if decision_step_total > 0
         else 0.0,
@@ -434,6 +490,7 @@ def evaluate_baseline(
         "episode_rewards": rewards,
         "episode_lengths": lengths,
         "episode_names": episode_names,
+        "episode_metrics": episode_metrics,
     }
 
 

@@ -653,7 +653,21 @@ class MultiStationChargingEnv(gym.Env):
             self._sim.get_metrics(query_time=self.clock).ev_served[: self.num_stations],
             dtype=np.float32,
         )
-        load_mean = float(station_loads.mean()) if station_loads.size > 0 else 0.0
+        assigned_demand = np.zeros(self.num_stations, dtype=np.float64)
+        for request in self._submitted_requests:
+            station_id = int(request.station_id)
+            if 0 <= station_id < self.num_stations:
+                assigned_demand[station_id] += float(request.charge_duration)
+        capacities = np.asarray(self.station_capacities, dtype=np.float64)
+        normalized_demand = np.divide(
+            assigned_demand,
+            capacities,
+            out=np.zeros_like(assigned_demand),
+            where=capacities > 0.0,
+        )
+        load_mean = (
+            float(normalized_demand.mean()) if normalized_demand.size > 0 else 0.0
+        )
         return {
             "vehicle_wait_times": vehicle_wait_times.astype(float).tolist(),
             "mean_waiting_time": (
@@ -668,9 +682,11 @@ class MultiStationChargingEnv(gym.Env):
                 float(vehicle_wait_times.max()) if vehicle_wait_times.size > 0 else 0.0
             ),
             "station_loads": station_loads.astype(int).tolist(),
+            "assigned_demand_by_station": assigned_demand.astype(float).tolist(),
+            "normalized_assigned_demand_by_station": normalized_demand.astype(float).tolist(),
             "load_imbalance": (
-                float(station_loads.std() / (load_mean + 1e-8))
-                if station_loads.size > 0
+                float(normalized_demand.std() / (load_mean + 1e-8))
+                if normalized_demand.size > 0
                 else 0.0
             ),
         }

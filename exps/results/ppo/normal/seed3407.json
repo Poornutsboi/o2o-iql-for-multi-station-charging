@@ -1,0 +1,681 @@
+{
+  "data_dir": "data\\test_dataset\\normal",
+  "split_name": "normal",
+  "results": [
+    {
+      "label": "ppo-seed3407",
+      "baseline_name": "ppo-seed3407",
+      "scenario": "normal",
+      "seed": 3407,
+      "model_path": "runs\\ppo\\runs\\normal\\seed3407\\checkpoints\\best_model.zip",
+      "data_dir": "data\\test_dataset\\normal",
+      "n_eval_episodes": 20,
+      "mean_reward": -2107.378747182805,
+      "std_reward": 2091.99624567421,
+      "min_reward": -8265.684240102768,
+      "max_reward": 0.0,
+      "mean_ep_length": 267.9,
+      "std_ep_length": 93.54565730166205,
+      "mean_waiting_time": 6.578378052264452,
+      "std_waiting_time": 5.2872649826061515,
+      "mean_p95_waiting_time": 33.045056223869324,
+      "mean_max_waiting_time": 44.02966861724853,
+      "dataset_total_waiting_time": 42147.5748879835,
+      "dataset_vehicle_count": 5358,
+      "dataset_average_waiting_time": 7.8662887062305895,
+      "mean_cv_load_imbalance": 0.4150386983047504,
+      "invalid_action_rate": 0.0,
+      "invalid_action_count": 0,
+      "decision_step_count": 5358,
+      "episode_rewards": [
+        -3397.0496039390564,
+        -3359.455992223695,
+        -186.19999980926514,
+        -1844.0285804271698,
+        -1964.8196963071823,
+        -8265.684240102768,
+        -1292.9740848094225,
+        -2099.7453087568283,
+        -887.3505098819733,
+        -3483.2395842149854,
+        -3311.7583195865154,
+        -98.0,
+        -50.0,
+        -3975.0840196609497,
+        -123.0,
+        -172.0,
+        -5054.435009300709,
+        -27.0,
+        -2555.749994635582,
+        0.0
+      ],
+      "episode_lengths": [
+        258,
+        361,
+        138,
+        381,
+        287,
+        484,
+        215,
+        221,
+        197,
+        263,
+        282,
+        170,
+        249,
+        377,
+        263,
+        219,
+        427,
+        162,
+        272,
+        132
+      ],
+      "episode_names": [
+        "episode_0000.csv",
+        "episode_0001.csv",
+        "episode_0002.csv",
+        "episode_0003.csv",
+        "episode_0004.csv",
+        "episode_0005.csv",
+        "episode_0006.csv",
+        "episode_0007.csv",
+        "episode_0008.csv",
+        "episode_0009.csv",
+        "episode_0010.csv",
+        "episode_0011.csv",
+        "episode_0012.csv",
+        "episode_0013.csv",
+        "episode_0014.csv",
+        "episode_0015.csv",
+        "episode_0016.csv",
+        "episode_0017.csv",
+        "episode_0018.csv",
+        "episode_0019.csv"
+      ],
+      "episode_metrics": [
+        {
+          "episode_name": "episode_0000.csv",
+          "episode_reward": -3397.0496039390564,
+          "episode_length": 258,
+          "vehicle_count": 258,
+          "total_waiting_time": 3397.049615263939,
+          "mean_waiting_time": 13.16685962677002,
+          "p95_waiting_time": 64.53500366210938,
+          "max_waiting_time": 72.80000305175781,
+          "cv_load_imbalance": 0.6508539383528757,
+          "assigned_demand_by_station": [
+            1655.6,
+            1451.2000000000003,
+            3538.2500000000005,
+            368.90000000000003,
+            731.0999999999999,
+            1848.0,
+            771.95
+          ],
+          "normalized_assigned_demand_by_station": [
+            165.56,
+            58.04800000000001,
+            196.56944444444446,
+            30.74166666666667,
+            60.92499999999999,
+            84.0,
+            42.88611111111111
+          ]
+        },
+        {
+          "episode_name": "episode_0001.csv",
+          "episode_reward": -3359.455992223695,
+          "episode_length": 361,
+          "vehicle_count": 361,
+          "total_waiting_time": 3359.4560174942017,
+          "mean_waiting_time": 9.3059720993042,
+          "p95_waiting_time": 36.25,
+          "max_waiting_time": 60.961463928222656,
+          "cv_load_imbalance": 0.3973594876441501,
+          "assigned_demand_by_station": [
+            1959.55,
+            2527.95,
+            2514.4999999999995,
+            1515.2,
+            2946.0,
+            2290.85,
+            1295.95
+          ],
+          "normalized_assigned_demand_by_station": [
+            195.95499999999998,
+            101.118,
+            139.69444444444443,
+            126.26666666666667,
+            245.5,
+            104.12954545454545,
+            71.99722222222222
+          ]
+        },
+        {
+          "episode_name": "episode_0002.csv",
+          "episode_reward": -186.19999980926514,
+          "episode_length": 138,
+          "vehicle_count": 138,
+          "total_waiting_time": 186.19999980926514,
+          "mean_waiting_time": 1.3492753505706787,
+          "p95_waiting_time": 14.149999618530273,
+          "max_waiting_time": 27.0,
+          "cv_load_imbalance": 0.4375253144474092,
+          "assigned_demand_by_station": [
+            698.4,
+            702.5,
+            513.6999999999999,
+            388.0,
+            436.20000000000005,
+            423.85,
+            504.35
+          ],
+          "normalized_assigned_demand_by_station": [
+            69.84,
+            28.1,
+            28.538888888888884,
+            32.333333333333336,
+            36.35,
+            19.26590909090909,
+            28.019444444444446
+          ]
+        },
+        {
+          "episode_name": "episode_0003.csv",
+          "episode_reward": -1844.0285804271698,
+          "episode_length": 381,
+          "vehicle_count": 381,
+          "total_waiting_time": 1844.0285797715187,
+          "mean_waiting_time": 4.839970111846924,
+          "p95_waiting_time": 26.0,
+          "max_waiting_time": 36.87638473510742,
+          "cv_load_imbalance": 0.3610069619638342,
+          "assigned_demand_by_station": [
+            1614.35,
+            1447.8999999999999,
+            1761.85,
+            1623.9500000000003,
+            2104.3999999999996,
+            1455.5000000000005,
+            2048.05
+          ],
+          "normalized_assigned_demand_by_station": [
+            161.435,
+            57.916,
+            97.88055555555555,
+            135.32916666666668,
+            175.36666666666665,
+            66.15909090909093,
+            113.78055555555557
+          ]
+        },
+        {
+          "episode_name": "episode_0004.csv",
+          "episode_reward": -1964.8196963071823,
+          "episode_length": 287,
+          "vehicle_count": 287,
+          "total_waiting_time": 1964.819679737091,
+          "mean_waiting_time": 6.8460612297058105,
+          "p95_waiting_time": 30.489999771118164,
+          "max_waiting_time": 43.75,
+          "cv_load_imbalance": 0.3013061055975707,
+          "assigned_demand_by_station": [
+            1301.5500000000002,
+            1653.7000000000005,
+            1438.7999999999997,
+            952.95,
+            1551.0,
+            1751.1499999999999,
+            1051.85
+          ],
+          "normalized_assigned_demand_by_station": [
+            130.15500000000003,
+            66.14800000000002,
+            79.93333333333332,
+            79.41250000000001,
+            129.25,
+            79.59772727272727,
+            58.4361111111111
+          ]
+        },
+        {
+          "episode_name": "episode_0005.csv",
+          "episode_reward": -8265.684240102768,
+          "episode_length": 484,
+          "vehicle_count": 484,
+          "total_waiting_time": 8265.684190511703,
+          "mean_waiting_time": 17.07785987854004,
+          "p95_waiting_time": 52.41250228881836,
+          "max_waiting_time": 60.138057708740234,
+          "cv_load_imbalance": 0.38890267841739723,
+          "assigned_demand_by_station": [
+            1613.5500000000002,
+            1660.2000000000005,
+            1204.6499999999999,
+            1962.3499999999995,
+            2149.5,
+            2478.1000000000017,
+            1369.6500000000003
+          ],
+          "normalized_assigned_demand_by_station": [
+            161.35500000000002,
+            66.40800000000002,
+            66.925,
+            163.5291666666666,
+            179.125,
+            112.64090909090918,
+            76.09166666666668
+          ]
+        },
+        {
+          "episode_name": "episode_0006.csv",
+          "episode_reward": -1292.9740848094225,
+          "episode_length": 215,
+          "vehicle_count": 215,
+          "total_waiting_time": 1292.9740834385157,
+          "mean_waiting_time": 6.013833045959473,
+          "p95_waiting_time": 37.290000915527344,
+          "max_waiting_time": 45.400001525878906,
+          "cv_load_imbalance": 0.399935364565437,
+          "assigned_demand_by_station": [
+            1243.6,
+            1575.8000000000002,
+            1466.0,
+            820.9,
+            1810.4,
+            1304.2500000000005,
+            974.0500000000001
+          ],
+          "normalized_assigned_demand_by_station": [
+            124.35999999999999,
+            63.03200000000001,
+            81.44444444444444,
+            68.40833333333333,
+            150.86666666666667,
+            59.28409090909093,
+            54.113888888888894
+          ]
+        },
+        {
+          "episode_name": "episode_0007.csv",
+          "episode_reward": -2099.7453087568283,
+          "episode_length": 221,
+          "vehicle_count": 221,
+          "total_waiting_time": 2099.745305225253,
+          "mean_waiting_time": 9.501110076904297,
+          "p95_waiting_time": 44.70000076293945,
+          "max_waiting_time": 48.45000076293945,
+          "cv_load_imbalance": 0.6805091386504138,
+          "assigned_demand_by_station": [
+            1578.7499999999998,
+            1610.45,
+            3156.6999999999994,
+            318.95,
+            701.7500000000001,
+            1042.45,
+            704.95
+          ],
+          "normalized_assigned_demand_by_station": [
+            157.87499999999997,
+            64.418,
+            175.37222222222218,
+            26.579166666666666,
+            58.47916666666668,
+            47.38409090909091,
+            39.16388888888889
+          ]
+        },
+        {
+          "episode_name": "episode_0008.csv",
+          "episode_reward": -887.3505098819733,
+          "episode_length": 197,
+          "vehicle_count": 197,
+          "total_waiting_time": 887.3505098819733,
+          "mean_waiting_time": 4.504317283630371,
+          "p95_waiting_time": 37.08000183105469,
+          "max_waiting_time": 41.5,
+          "cv_load_imbalance": 0.4674639870814147,
+          "assigned_demand_by_station": [
+            1076.3,
+            844.5,
+            770.8500000000003,
+            631.1,
+            1239.1999999999998,
+            1276.25,
+            613.8000000000001
+          ],
+          "normalized_assigned_demand_by_station": [
+            107.63,
+            33.78,
+            42.82500000000002,
+            52.59166666666667,
+            103.26666666666665,
+            58.01136363636363,
+            34.1
+          ]
+        },
+        {
+          "episode_name": "episode_0009.csv",
+          "episode_reward": -3483.2395842149854,
+          "episode_length": 263,
+          "vehicle_count": 263,
+          "total_waiting_time": 3483.2395970895886,
+          "mean_waiting_time": 13.244256019592285,
+          "p95_waiting_time": 70.7300033569336,
+          "max_waiting_time": 76.0,
+          "cv_load_imbalance": 0.532182129604197,
+          "assigned_demand_by_station": [
+            2119.75,
+            836.3000000000001,
+            1507.7499999999998,
+            885.8499999999999,
+            1767.4500000000005,
+            2552.8,
+            1151.1
+          ],
+          "normalized_assigned_demand_by_station": [
+            211.975,
+            33.452000000000005,
+            83.76388888888887,
+            73.82083333333333,
+            147.28750000000005,
+            116.03636363636365,
+            63.949999999999996
+          ]
+        },
+        {
+          "episode_name": "episode_0010.csv",
+          "episode_reward": -3311.7583195865154,
+          "episode_length": 282,
+          "vehicle_count": 282,
+          "total_waiting_time": 3311.7583194971085,
+          "mean_waiting_time": 11.743824005126953,
+          "p95_waiting_time": 69.36249542236328,
+          "max_waiting_time": 86.19999694824219,
+          "cv_load_imbalance": 0.5603035253687754,
+          "assigned_demand_by_station": [
+            2450.3,
+            1306.75,
+            1424.55,
+            628.6000000000001,
+            1800.6999999999996,
+            2606.4500000000003,
+            1630.6499999999996
+          ],
+          "normalized_assigned_demand_by_station": [
+            245.03000000000003,
+            52.27,
+            79.14166666666667,
+            52.38333333333335,
+            150.0583333333333,
+            118.47500000000001,
+            90.59166666666664
+          ]
+        },
+        {
+          "episode_name": "episode_0011.csv",
+          "episode_reward": -98.0,
+          "episode_length": 170,
+          "vehicle_count": 170,
+          "total_waiting_time": 98.0,
+          "mean_waiting_time": 0.5764706134796143,
+          "p95_waiting_time": 4.0,
+          "max_waiting_time": 20.0,
+          "cv_load_imbalance": 0.24456841188288803,
+          "assigned_demand_by_station": [
+            881.9499999999999,
+            1397.6499999999999,
+            783.3,
+            880.4,
+            907.0000000000001,
+            979.85,
+            1105.8500000000001
+          ],
+          "normalized_assigned_demand_by_station": [
+            88.195,
+            55.90599999999999,
+            43.516666666666666,
+            73.36666666666666,
+            75.58333333333334,
+            44.538636363636364,
+            61.43611111111112
+          ]
+        },
+        {
+          "episode_name": "episode_0012.csv",
+          "episode_reward": -50.0,
+          "episode_length": 249,
+          "vehicle_count": 249,
+          "total_waiting_time": 50.0,
+          "mean_waiting_time": 0.2008032202720642,
+          "p95_waiting_time": 0.0,
+          "max_waiting_time": 10.0,
+          "cv_load_imbalance": 0.34318426766448823,
+          "assigned_demand_by_station": [
+            1264.0,
+            1808.8,
+            935.0,
+            909.0,
+            1160.0,
+            1159.45,
+            932.7499999999999
+          ],
+          "normalized_assigned_demand_by_station": [
+            126.4,
+            72.352,
+            51.94444444444444,
+            75.75,
+            96.66666666666667,
+            52.70227272727273,
+            51.819444444444436
+          ]
+        },
+        {
+          "episode_name": "episode_0013.csv",
+          "episode_reward": -3975.0840196609497,
+          "episode_length": 377,
+          "vehicle_count": 377,
+          "total_waiting_time": 3975.0840116143227,
+          "mean_waiting_time": 10.543990135192871,
+          "p95_waiting_time": 56.15999984741211,
+          "max_waiting_time": 80.69999694824219,
+          "cv_load_imbalance": 0.2931952319336832,
+          "assigned_demand_by_station": [
+            1661.3499999999997,
+            1733.25,
+            2076.3,
+            1333.6499999999992,
+            1860.9499999999998,
+            2517.05,
+            1338.4500000000003
+          ],
+          "normalized_assigned_demand_by_station": [
+            166.13499999999996,
+            69.33,
+            115.35000000000001,
+            111.13749999999993,
+            155.07916666666665,
+            114.41136363636365,
+            74.35833333333335
+          ]
+        },
+        {
+          "episode_name": "episode_0014.csv",
+          "episode_reward": -123.0,
+          "episode_length": 263,
+          "vehicle_count": 263,
+          "total_waiting_time": 123.0,
+          "mean_waiting_time": 0.46768060326576233,
+          "p95_waiting_time": 4.0,
+          "max_waiting_time": 12.0,
+          "cv_load_imbalance": 0.2883565574504495,
+          "assigned_demand_by_station": [
+            886.0,
+            1153.75,
+            917.0,
+            956.4,
+            1022.6,
+            858.25,
+            1110.0
+          ],
+          "normalized_assigned_demand_by_station": [
+            88.6,
+            46.15,
+            50.94444444444444,
+            79.7,
+            85.21666666666667,
+            39.01136363636363,
+            61.666666666666664
+          ]
+        },
+        {
+          "episode_name": "episode_0015.csv",
+          "episode_reward": -172.0,
+          "episode_length": 219,
+          "vehicle_count": 219,
+          "total_waiting_time": 172.0,
+          "mean_waiting_time": 0.7853881120681763,
+          "p95_waiting_time": 6.099999904632568,
+          "max_waiting_time": 14.75,
+          "cv_load_imbalance": 0.3391835080754409,
+          "assigned_demand_by_station": [
+            1171.85,
+            1338.45,
+            804.35,
+            825.0,
+            1011.9,
+            1208.7000000000003,
+            996.75
+          ],
+          "normalized_assigned_demand_by_station": [
+            117.18499999999999,
+            53.538000000000004,
+            44.68611111111111,
+            68.75,
+            84.325,
+            54.9409090909091,
+            55.375
+          ]
+        },
+        {
+          "episode_name": "episode_0016.csv",
+          "episode_reward": -5054.435009300709,
+          "episode_length": 427,
+          "vehicle_count": 427,
+          "total_waiting_time": 5054.434984013438,
+          "mean_waiting_time": 11.837082862854004,
+          "p95_waiting_time": 54.141117095947266,
+          "max_waiting_time": 67.31746673583984,
+          "cv_load_imbalance": 0.4071853269995986,
+          "assigned_demand_by_station": [
+            1608.2500000000002,
+            1578.0999999999997,
+            1896.7500000000005,
+            2216.8499999999995,
+            2830.3999999999996,
+            2361.8500000000004,
+            1743.8000000000002
+          ],
+          "normalized_assigned_demand_by_station": [
+            160.82500000000002,
+            63.12399999999999,
+            105.37500000000003,
+            184.73749999999995,
+            235.86666666666665,
+            107.3568181818182,
+            96.8777777777778
+          ]
+        },
+        {
+          "episode_name": "episode_0017.csv",
+          "episode_reward": -27.0,
+          "episode_length": 162,
+          "vehicle_count": 162,
+          "total_waiting_time": 27.0,
+          "mean_waiting_time": 0.1666666716337204,
+          "p95_waiting_time": 0.0,
+          "max_waiting_time": 17.0,
+          "cv_load_imbalance": 0.3690586664652259,
+          "assigned_demand_by_station": [
+            1048.0,
+            1184.0,
+            1084.0,
+            1085.0,
+            689.0,
+            1097.0,
+            602.0
+          ],
+          "normalized_assigned_demand_by_station": [
+            104.8,
+            47.36,
+            60.22222222222222,
+            90.41666666666667,
+            57.416666666666664,
+            49.86363636363637,
+            33.44444444444444
+          ]
+        },
+        {
+          "episode_name": "episode_0018.csv",
+          "episode_reward": -2555.749994635582,
+          "episode_length": 272,
+          "vehicle_count": 272,
+          "total_waiting_time": 2555.749994635582,
+          "mean_waiting_time": 9.396140098571777,
+          "p95_waiting_time": 53.5,
+          "max_waiting_time": 59.75,
+          "cv_load_imbalance": 0.4396309040628013,
+          "assigned_demand_by_station": [
+            1348.4,
+            1837.4499999999998,
+            1930.6499999999999,
+            672.85,
+            719.6000000000001,
+            1702.2500000000007,
+            426.7999999999999
+          ],
+          "normalized_assigned_demand_by_station": [
+            134.84,
+            73.49799999999999,
+            107.25833333333333,
+            56.07083333333333,
+            59.966666666666676,
+            77.37500000000003,
+            23.711111111111105
+          ]
+        },
+        {
+          "episode_name": "episode_0019.csv",
+          "episode_reward": 0.0,
+          "episode_length": 132,
+          "vehicle_count": 132,
+          "total_waiting_time": 0.0,
+          "mean_waiting_time": 0.0,
+          "p95_waiting_time": 0.0,
+          "max_waiting_time": 0.0,
+          "cv_load_imbalance": 0.3990624598669569,
+          "assigned_demand_by_station": [
+            577.0,
+            967.0,
+            815.0,
+            658.0,
+            527.0,
+            434.0,
+            238.0
+          ],
+          "normalized_assigned_demand_by_station": [
+            57.7,
+            38.68,
+            45.27777777777778,
+            54.833333333333336,
+            43.916666666666664,
+            19.727272727272727,
+            13.222222222222221
+          ]
+        }
+      ],
+      "mean_load_imbalance": 0.4150386983047504
+    }
+  ]
+}

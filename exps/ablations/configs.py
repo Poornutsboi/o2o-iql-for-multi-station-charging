@@ -16,6 +16,8 @@ OFFLINE_PRETRAIN_DIR = f"{ROOT}/_offline_pretrain"
 
 TRAIN_DATA_DIR = "data/train_dataset/bias"
 EVAL_DATA_ROOT = "data/train_dataset"
+OFFLINE_DEMAND_DIR = "data/offline_dataset/demand"
+OFFLINE_SOLUTION_DIR = "data/offline_dataset/solutions"
 ONLINE_STEPS = 200_000
 OFFLINE_EPOCHS = 100
 SEEDS = [42, 123, 2024]
@@ -26,6 +28,11 @@ ABLATIONS: dict[str, dict] = {
         "use_pretrained": True,
         "patch": None,
         "cli": {},
+    },
+    "offline_only": {
+        "use_pretrained": True,
+        "patch": None,
+        "cli": {"online_steps": 0},
     },
     "no_offline": {
         "use_pretrained": False,
