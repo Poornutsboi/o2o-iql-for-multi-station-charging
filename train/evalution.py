@@ -145,14 +145,14 @@ def _station_assignment_target_station(env: EpisodeBankChargingEnv) -> int:
             break
 
     observation = env._current_observation()  # noqa: SLF001 - evaluation helper
-    station_payloads = observation["sim_state"]["stations"]
+    ev_queueing = list(observation["sim_state"]["ev_queueing"])
 
-    current_queue_len = len(station_payloads[current_station]["queue_waiting_time"])
+    current_queue_len = int(ev_queueing[current_station])
     if len(candidate_stations) < 2:
         return int(current_station)
 
     next_station = int(candidate_stations[1])
-    next_queue_len = len(station_payloads[next_station]["queue_waiting_time"])
+    next_queue_len = int(ev_queueing[next_station])
     rng = getattr(env, "np_random", None)
     if rng is None:
         observed_error = float(STATION_ASSIGNMENT_NEXT_QUEUE_ERROR_MEAN)
@@ -271,11 +271,10 @@ def _greedy_split_action(env: EpisodeBankChargingEnv) -> int:
         candidate_stations.append(int(station_id))
 
     observation = env._current_observation()  # noqa: SLF001 - evaluation helper
-    station_payloads = observation["sim_state"]["stations"]
+    ev_queueing = list(observation["sim_state"]["ev_queueing"])
 
     def _candidate_score(station_id: int) -> tuple[int, float, int]:
-        queue_waiting_time = station_payloads[station_id]["queue_waiting_time"]
-        queue_len = len(queue_waiting_time)
+        queue_len = int(ev_queueing[int(station_id)])
         travel_time = float(TRAVEL_MATRIX[current_station][station_id])
         return (queue_len, travel_time, int(station_id))
 

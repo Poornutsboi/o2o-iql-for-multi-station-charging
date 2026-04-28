@@ -53,6 +53,43 @@ def _expectile_loss(diff: torch.Tensor, expectile: float) -> torch.Tensor:
     return weight * diff.pow(2)
 
 
+class _ObservationNormalizer(nn.Module):
+    """Per-dimension z-score with frozen statistics computed from offline data.
+
+    The ``(mean, std)`` buffers default to ``(0, 1)`` so a freshly constructed
+    agent or a checkpoint saved before z-score support behaves identically to
+    the original (no-op) pipeline. ``set_stats`` clamps near-zero std entries
+    to 1.0 to avoid division blow-up on degenerate dimensions (e.g. all-zero
+    commitment features in a no-split offline dataset).
+    """
+
+    def __init__(self, obs_dim: int) -> None:
+        super().__init__()
+        self.register_buffer("mean", torch.zeros(int(obs_dim), dtype=torch.float32))
+        self.register_buffer("std", torch.ones(int(obs_dim), dtype=torch.float32))
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        return (observations - self.mean) / self.std
+
+    @torch.no_grad()
+    def set_stats(
+        self,
+        mean: np.ndarray | torch.Tensor,
+        std: np.ndarray | torch.Tensor,
+        eps: float = 1e-3,
+    ) -> None:
+        mean_t = torch.as_tensor(mean, dtype=torch.float32, device=self.mean.device)
+        std_t = torch.as_tensor(std, dtype=torch.float32, device=self.std.device)
+        if mean_t.shape != self.mean.shape or std_t.shape != self.std.shape:
+            raise ValueError(
+                f"Observation stats shape mismatch: mean={tuple(mean_t.shape)}, "
+                f"std={tuple(std_t.shape)}, expected={tuple(self.mean.shape)}"
+            )
+        std_t = torch.where(std_t < float(eps), torch.ones_like(std_t), std_t)
+        self.mean.copy_(mean_t)
+        self.std.copy_(std_t)
+
+
 class MaskedPolicyNetwork(nn.Module):
     """Simple MLP policy over a discrete action space with action masks."""
 
@@ -177,6 +214,7 @@ class DiscreteIQLAgent:
         self.target_q1 = DiscreteQNetwork(obs_dim, act_dim, hidden_dims=self.hidden_dims).to(self.device)
         self.target_q2 = DiscreteQNetwork(obs_dim, act_dim, hidden_dims=self.hidden_dims).to(self.device)
         self.value = ValueNetwork(obs_dim, hidden_dims=self.hidden_dims).to(self.device)
+        self.obs_normalizer = _ObservationNormalizer(obs_dim).to(self.device)
 
         self.target_q1.load_state_dict(self.q1.state_dict())
         self.target_q2.load_state_dict(self.q2.state_dict())
@@ -202,6 +240,15 @@ class DiscreteIQLAgent:
     def set_temperature(self, temperature: float) -> None:
         self.temperature = float(temperature)
 
+    def set_observation_stats(
+        self,
+        mean: np.ndarray | torch.Tensor,
+        std: np.ndarray | torch.Tensor,
+        eps: float = 1e-3,
+    ) -> None:
+        """Install z-score statistics (frozen) used by every forward call."""
+        self.obs_normalizer.set_stats(mean=mean, std=std, eps=eps)
+
     def act(
         self,
         observation: np.ndarray,
@@ -209,7 +256,7 @@ class DiscreteIQLAgent:
         deterministic: bool = False,
     ) -> int:
         with torch.no_grad():
-            obs_t = self._to_tensor(observation, dtype=torch.float32)
+            obs_t = self.obs_normalizer(self._to_tensor(observation, dtype=torch.float32))
             mask_t = self._to_tensor(action_mask, dtype=torch.bool)
             return self.actor.act(obs_t, mask_t, deterministic=deterministic)
 
@@ -221,7 +268,9 @@ class DiscreteIQLAgent:
     ) -> int:
         """Select action via UCB(Q): argmax_valid [Q_mean + ucb_coef * Q_std]."""
         with torch.no_grad():
-            obs_t = self._to_tensor(observation, dtype=torch.float32).unsqueeze(0)
+            obs_t = self.obs_normalizer(
+                self._to_tensor(observation, dtype=torch.float32)
+            ).unsqueeze(0)
             mask_t = self._to_tensor(action_mask, dtype=torch.bool).unsqueeze(0)
             q1 = self.q1(obs_t)
             q2 = self.q2(obs_t)
@@ -233,10 +282,14 @@ class DiscreteIQLAgent:
             return int(ucb.argmax(dim=1).item())
 
     def update(self, batch: dict[str, np.ndarray | torch.Tensor]) -> IQLUpdateMetrics:
-        obs = self._to_tensor(batch["observations"], dtype=torch.float32)
+        obs = self.obs_normalizer(
+            self._to_tensor(batch["observations"], dtype=torch.float32)
+        )
         actions = self._to_tensor(batch["actions"], dtype=torch.long)
         rewards = self._to_tensor(batch["rewards"], dtype=torch.float32)
-        next_obs = self._to_tensor(batch["next_observations"], dtype=torch.float32)
+        next_obs = self.obs_normalizer(
+            self._to_tensor(batch["next_observations"], dtype=torch.float32)
+        )
         dones = self._to_tensor(batch["dones"], dtype=torch.float32)
         action_masks = self._to_tensor(batch["action_masks"], dtype=torch.bool)
 
@@ -341,6 +394,7 @@ class DiscreteIQLAgent:
             "target_q1": self.target_q1.state_dict(),
             "target_q2": self.target_q2.state_dict(),
             "value": self.value.state_dict(),
+            "obs_normalizer": self.obs_normalizer.state_dict(),
             "actor_optimizer": self.actor_optimizer.state_dict(),
             "q_optimizer": self.q_optimizer.state_dict(),
             "value_optimizer": self.value_optimizer.state_dict(),
@@ -371,6 +425,8 @@ class DiscreteIQLAgent:
         agent.target_q1.load_state_dict(payload["target_q1"])
         agent.target_q2.load_state_dict(payload["target_q2"])
         agent.value.load_state_dict(payload["value"])
+        if "obs_normalizer" in payload:
+            agent.obs_normalizer.load_state_dict(payload["obs_normalizer"])
         agent.actor_optimizer.load_state_dict(payload["actor_optimizer"])
         agent.q_optimizer.load_state_dict(payload["q_optimizer"])
         agent.value_optimizer.load_state_dict(payload["value_optimizer"])

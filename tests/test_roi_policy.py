@@ -40,15 +40,17 @@ class RoiPolicyTests(unittest.TestCase):
             min_first_charge=2.0,
             min_second_charge=2.0,
             clock=0.0,
-            _current_observation=lambda: {
-                "sim_state": {
-                    "travel_time_matrix": [[0.0, 1.0], [1.0, 0.0]],
+            _sim=SimpleNamespace(
+                get_state=lambda query_time: {
                     "stations": {
                         0: {"charger_status": [1.0], "queue_waiting_time": [1, 2, 3]},
                         1: {"charger_status": [0.0], "queue_waiting_time": []},
                     },
                 }
-            },
+            ),
+            _orchestrator=SimpleNamespace(
+                _build_travel_time_matrix=lambda: [[0.0, 1.0], [1.0, 0.0]],
+            ),
         )
 
         action = RoiPolicy(lookup).select_action(env)

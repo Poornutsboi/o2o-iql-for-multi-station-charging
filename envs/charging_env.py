@@ -95,6 +95,12 @@ class ListArrivalSource:
             raise ValueError("arrival source index is out of range.")
         self._index = index
 
+    def total_demand(self) -> float:
+        return float(sum(float(v.duration) for v in self._vehicles))
+
+    def vehicle_count(self) -> int:
+        return int(len(self._vehicles))
+
 
 def _normalize_vehicle(vehicle: Vehicle) -> Vehicle:
     normalized = Vehicle(
@@ -125,6 +131,7 @@ class MultiStationChargingEnv(gym.Env):
         arrival_source: ArrivalSource | None = None,
         second_leg_arrival_noise_scale: float = 0.25,
         invalid_action_penalty: float = 0.0,
+        reward_normalize_by: str = "none",
     ) -> None:
         super().__init__()
 
@@ -152,6 +159,12 @@ class MultiStationChargingEnv(gym.Env):
         self.second_leg_arrival_noise_scale = float(second_leg_arrival_noise_scale)
         self.invalid_action_penalty = float(invalid_action_penalty)
         self.travel_time_fn = travel_time_fn or (lambda _a, _b, _vehicle: 0.0)
+        if reward_normalize_by not in ("none", "total_demand", "vehicle_count"):
+            raise ValueError(
+                "reward_normalize_by must be one of 'none', 'total_demand', 'vehicle_count'."
+            )
+        self.reward_normalize_by = str(reward_normalize_by)
+        self._episode_norm: float = 1.0
 
         self._base_vehicles = None if vehicles is None else [_normalize_vehicle(vehicle) for vehicle in vehicles]
         self._arrival_source = arrival_source or ListArrivalSource(self._base_vehicles or [])
@@ -189,51 +202,28 @@ class MultiStationChargingEnv(gym.Env):
                 dtype=np.int32,
             )
 
-        station_spaces: dict[int, spaces.Space[Any]] = {}
-        for station_id, capacity in enumerate(self.station_capacities):
-            station_spaces[station_id] = spaces.Dict(
-                {
-                    "charger_status": spaces.Box(
-                        low=0.0,
-                        high=np.inf,
-                        shape=(capacity,),
-                        dtype=np.float32,
-                    ),
-                    "queue_waiting_time": spaces.Sequence(scalar_float(low=0.0)),
-                    "queue_demand": spaces.Sequence(scalar_float(low=0.0)),
-                }
-            )
-
-        metric_space = spaces.Dict(
-            {
-                "ev_served": spaces.Box(
-                    low=0,
-                    high=np.iinfo(np.int32).max,
-                    shape=(self.num_stations,),
-                    dtype=np.int32,
-                ),
-                "ev_queueing": spaces.Box(
-                    low=0,
-                    high=np.iinfo(np.int32).max,
-                    shape=(self.num_stations,),
-                    dtype=np.int32,
-                ),
-                "queue_time": spaces.Box(
-                    low=0.0,
-                    high=np.inf,
-                    shape=(self.num_stations,),
-                    dtype=np.float32,
-                ),
-            }
-        )
-
         return spaces.Dict(
             {
                 "sim_state": spaces.Dict(
                     {
-                        "clock": scalar_float(low=0.0),
-                        "stations": spaces.Dict(station_spaces),
-                        "metrics": metric_space,
+                        "ev_queueing": spaces.Box(
+                            low=0,
+                            high=np.iinfo(np.int32).max,
+                            shape=(self.num_stations,),
+                            dtype=np.int32,
+                        ),
+                        "max_queue_time": spaces.Box(
+                            low=0.0,
+                            high=np.inf,
+                            shape=(self.num_stations,),
+                            dtype=np.float32,
+                        ),
+                        "queue_demand": spaces.Box(
+                            low=0.0,
+                            high=np.inf,
+                            shape=(self.num_stations,),
+                            dtype=np.float32,
+                        ),
                     }
                 ),
                 "commitment_features": spaces.Dict(
@@ -246,12 +236,6 @@ class MultiStationChargingEnv(gym.Env):
                         ),
                         "commitment_charge_demand": spaces.Box(
                             low=0.0,
-                            high=np.inf,
-                            shape=(self.num_stations,),
-                            dtype=np.float32,
-                        ),
-                        "earliest_expected_arrival_eta": spaces.Box(
-                            low=-1.0,
                             high=np.inf,
                             shape=(self.num_stations,),
                             dtype=np.float32,
@@ -288,6 +272,18 @@ class MultiStationChargingEnv(gym.Env):
         self.total_wait = 0.0
         self._vehicle_total_wait = {}
         self._travel_time_vehicle_context = None
+        self._episode_norm = self._compute_episode_norm()
+
+    def _compute_episode_norm(self) -> float:
+        if self.reward_normalize_by == "none":
+            return 1.0
+        if self.reward_normalize_by == "total_demand":
+            getter = getattr(self._arrival_source, "total_demand", None)
+            value = float(getter()) if callable(getter) else 0.0
+        else:  # "vehicle_count"
+            getter = getattr(self._arrival_source, "vehicle_count", None)
+            value = float(getter()) if callable(getter) else 0.0
+        return max(value, 1.0)
 
     def _estimate_travel_time(self, from_station: int, to_station: int) -> float:
         vehicle = self._travel_time_vehicle_context
@@ -354,7 +350,8 @@ class MultiStationChargingEnv(gym.Env):
         truncated = False
         new_queue_total = self._queue_time_total(self.clock)
         queue_time_delta = float(new_queue_total - old_queue_total)
-        reward = (-self.reward_scale * queue_time_delta) - (
+        normalized_delta = queue_time_delta / self._episode_norm
+        reward = (-self.reward_scale * normalized_delta) - (
             self.invalid_action_penalty if invalid_action else 0.0
         )
 
@@ -403,36 +400,27 @@ class MultiStationChargingEnv(gym.Env):
 
     def _filter_observation(self, observation: dict[str, Any]) -> dict[str, Any]:
         sim_state = observation["sim_state"]
-        filtered_stations: dict[int, dict[str, Any]] = {}
-        for station_id, station_payload in sorted(sim_state["stations"].items()):
-            filtered_stations[int(station_id)] = {
-                "charger_status": [
-                    float(value) for value in station_payload["charger_status"]
-                ],
-                "queue_waiting_time": tuple(
-                    float(value) for value in station_payload["queue_waiting_time"]
-                ),
-                "queue_demand": tuple(
-                    float(value) for value in station_payload["queue_demand"]
-                ),
-            }
+        max_queue_time = [0.0 for _ in range(self.num_stations)]
+        queue_demand_total = [0.0 for _ in range(self.num_stations)]
+        for station_id, station_payload in sim_state["stations"].items():
+            sid = int(station_id)
+            if not 0 <= sid < self.num_stations:
+                continue
+            qwt = station_payload["queue_waiting_time"]
+            if len(qwt) > 0:
+                max_queue_time[sid] = float(max(float(value) for value in qwt))
+            queue_demand_total[sid] = float(
+                sum(float(value) for value in station_payload["queue_demand"])
+            )
 
         current_ev = observation["current_ev"]
         return {
             "sim_state": {
-                "clock": float(sim_state["clock"]),
-                "stations": filtered_stations,
-                "metrics": {
-                    "ev_served": [
-                        int(value) for value in sim_state["metrics"]["ev_served"]
-                    ],
-                    "ev_queueing": [
-                        int(value) for value in sim_state["metrics"]["ev_queueing"]
-                    ],
-                    "queue_time": [
-                        float(value) for value in sim_state["metrics"]["queue_time"]
-                    ],
-                },
+                "ev_queueing": [
+                    int(value) for value in sim_state["metrics"]["ev_queueing"]
+                ],
+                "max_queue_time": max_queue_time,
+                "queue_demand": queue_demand_total,
             },
             "commitment_features": {
                 "commitment_count": [
@@ -441,10 +429,6 @@ class MultiStationChargingEnv(gym.Env):
                 "commitment_charge_demand": [
                     float(value)
                     for value in observation["commitment_features"]["commitment_charge_demand"]
-                ],
-                "earliest_expected_arrival_eta": [
-                    float(value)
-                    for value in observation["commitment_features"]["earliest_expected_arrival_eta"]
                 ],
             },
             "current_ev": {
@@ -738,6 +722,7 @@ class EpisodeBankChargingEnv(MultiStationChargingEnv):
         n_bins: int = 21,
         second_leg_arrival_noise_scale: float = 0.25,
         invalid_action_penalty: float = 0.0,
+        reward_normalize_by: str = "none",
     ) -> None:
         if not episode_bank:
             raise ValueError("episode_bank must not be empty.")
@@ -756,6 +741,7 @@ class EpisodeBankChargingEnv(MultiStationChargingEnv):
             n_bins=n_bins,
             second_leg_arrival_noise_scale=second_leg_arrival_noise_scale,
             invalid_action_penalty=invalid_action_penalty,
+            reward_normalize_by=reward_normalize_by,
         )
 
     def reset(self, *, seed: int | None = None, options: dict | None = None):

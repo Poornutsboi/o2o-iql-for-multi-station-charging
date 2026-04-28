@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_charging_env.py tests/test_o2o_iql.py tests/test_iql.py -x -q)",
+      "Bash(python -c \"import sys; print\\(sys.version\\); print\\(sys.executable\\)\")",
+      "Bash(python -m unittest tests.test_charging_env -v)",
+      "Bash(python -m unittest tests.test_o2o_iql tests.test_iql -v)",
+      "Bash(python -)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('train/o2o_iql/trainer.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('train/iql/iql_trainer.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('train/iql/data.py', encoding='utf-8'\\).read\\(\\)\\); ast.parse\\(open\\('envs/charging_env.py', encoding='utf-8'\\).read\\(\\)\\); print\\('all parse OK'\\)\")",
+      "Bash(python -m unittest tests.test_orchestrator_observation tests.test_charging_env tests.test_demo_observation_format -v)",
+      "Bash(python -m unittest tests.test_orchestrator_observation tests.test_charging_env tests.test_demo_observation_format tests.test_simulator_initial_state -v)",
+      "Bash(python -m unittest tests.test_orchestrator_observation tests.test_charging_env tests.test_demo_observation_format tests.test_simulator_initial_state)",
+      "Bash(python -m unittest tests.test_charging_env tests.test_orchestrator_observation tests.test_demo_observation_format tests.test_simulator_initial_state tests.test_roi_policy tests.test_evalution_baselines)",
+      "Bash(python -m unittest tests.test_iql tests.test_o2o_iql tests.test_charging_env tests.test_orchestrator_observation tests.test_demo_observation_format tests.test_simulator_initial_state tests.test_roi_policy tests.test_evalution_baselines)",
+      "Bash(python -c ' *)"
+    ]
+  }
+}

@@ -77,12 +77,11 @@ class RoiPolicy:
             delta=float(delta),
         )
 
-    def _build_occupancy(self, observation: Mapping[str, object]) -> dict[int, StationOccupancy]:
-        sim_state = observation["sim_state"]
-        stations = sim_state["stations"]
+    def _build_occupancy(self, env: EpisodeBankChargingEnv) -> dict[int, StationOccupancy]:
+        sim_state = env._sim.get_state(query_time=float(env.clock))  # noqa: SLF001
         return {
             int(station_id): _occupancy_from_station_payload(int(station_id), payload)
-            for station_id, payload in stations.items()
+            for station_id, payload in sim_state["stations"].items()
         }
 
     def select_action(self, env: EpisodeBankChargingEnv) -> int:
@@ -90,11 +89,8 @@ class RoiPolicy:
             return no_split_action_int(n_bins=env.n_bins, num_stations=env.num_stations)
 
         vehicle = env.pending_vehicle
-        observation = env._current_observation()  # noqa: SLF001 - same pattern as baselines
-        occupancy = self._build_occupancy(observation)
-        travel_matrix = observation["sim_state"].get("travel_time_matrix")
-        if travel_matrix is None:
-            travel_matrix = env._orchestrator._build_travel_time_matrix()  # noqa: SLF001
+        occupancy = self._build_occupancy(env)
+        travel_matrix = env._orchestrator._build_travel_time_matrix()  # noqa: SLF001
 
         def _travel_time(station_a: int, station_b: int) -> float:
             return float(travel_matrix[int(station_a)][int(station_b)])

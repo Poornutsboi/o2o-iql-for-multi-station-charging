@@ -40,92 +40,60 @@ from simulator.orchestrator import load_demand_vehicles_from_csv
 # ---------------------------------------------------------------------------
 
 class FlatObsWrapper(gym.ObservationWrapper):
-    """Flatten the nested Dict/Sequence observation into a 1-D float32 Box.
+    """Flatten the env's Dict observation into a 1-D float32 Box.
 
-    The env's observation contains variable-length Sequence spaces
-    (queue_waiting_time, queue_demand, downstream_stations) that are
-    incompatible with SB3's default MlpPolicy. This wrapper:
-      - Pads / truncates queue sequences to ``max_queue_len``.
-      - Encodes downstream_stations as a binary mask over all stations.
-      - Returns a flat float32 array.
+    The env's observation already exposes per-station scalar summaries
+    (``max_queue_time``, ``queue_demand``, ``ev_queueing``) and 7-dim
+    commitment / future-demand vectors, so this wrapper only needs to:
+      - Concatenate the per-station vectors in a fixed order.
+      - One-hot encode the categorical ``current_ev.station_id``.
+      - Encode ``downstream_stations`` as a binary mask over all stations.
+      - Return a flat float32 array.
     """
 
     def __init__(self, env: gym.Env, max_queue_len: int = 10) -> None:
+        del max_queue_len  # retained in signature for backward compatibility.
         super().__init__(env)
-        self.max_queue_len = int(max_queue_len)
         self.num_stations = int(env.get_wrapper_attr("num_stations"))
         self.station_capacities = list(env.get_wrapper_attr("station_capacities"))
         num_stations = self.num_stations
-        capacities = self.station_capacities
-        mq = self.max_queue_len
 
-        # Flat dimension breakdown:
-        #   sim_state.clock                  : 1
-        #   per station (cap + 2*mq)        : varies
-        #   metrics (3 * num_stations)       : 21
-        #   commitment_features (3*S)        : 21
-        #   current_ev (2 + S)               : 9
-        #   future_demand (S)                : 7
-        sim_dim = (
-            1
-            + sum(cap + 2 * mq for cap in capacities)
-            + 3 * num_stations
-        )
-        commit_dim = 3 * num_stations
-        ev_dim = 2 + num_stations
-        future_dim = num_stations
-
-        total_dim = sim_dim + commit_dim + ev_dim + future_dim
+        # Flat dimension breakdown (each per-station vector contributes S):
+        #   max_queue_time, queue_demand, ev_queueing
+        #   commitment_count, commitment_charge_demand
+        #   current_ev: station_id one-hot (S) + total_charge_demand (1) + ds_mask (S)
+        #   future_demand
+        total_dim = 8 * num_stations + 1
         self.observation_space = spaces.Box(
             low=-np.inf, high=np.inf, shape=(total_dim,), dtype=np.float32
         )
 
     def observation(self, obs: dict) -> np.ndarray:
         num_stations = self.num_stations
-        capacities = self.station_capacities
-        mq = self.max_queue_len
         parts: list[np.ndarray] = []
 
-        # --- sim_state ---
         sim = obs["sim_state"]
-        clock = float(sim["clock"])
-        parts.append(np.array([clock], dtype=np.float32))
+        parts.append(np.asarray(sim["max_queue_time"], dtype=np.float32)[:num_stations])
+        parts.append(np.asarray(sim["queue_demand"],   dtype=np.float32)[:num_stations])
+        parts.append(np.asarray(sim["ev_queueing"],    dtype=np.float32)[:num_stations])
 
-        for sid, cap in enumerate(capacities):
-            st = sim["stations"][sid]
-            parts.append(np.asarray(st["charger_status"], dtype=np.float32))
-
-            qwt = [float(v) for v in st["queue_waiting_time"]][:mq]
-            qd  = [float(v) for v in st["queue_demand"]][:mq]
-            qwt += [0.0] * (mq - len(qwt))
-            qd  += [0.0] * (mq - len(qd))
-            parts.append(np.array(qwt, dtype=np.float32))
-            parts.append(np.array(qd,  dtype=np.float32))
-
-        m = sim["metrics"]
-        parts.append(np.asarray(m["ev_served"],   dtype=np.float32)[:num_stations])
-        parts.append(np.asarray(m["ev_queueing"], dtype=np.float32)[:num_stations])
-        parts.append(np.asarray(m["queue_time"],  dtype=np.float32)[:num_stations])
-
-        # --- commitment_features ---
         cf = obs["commitment_features"]
-        parts.append(np.asarray(cf["commitment_count"],                dtype=np.float32))
-        parts.append(np.asarray(cf["commitment_charge_demand"],        dtype=np.float32))
-        parts.append(np.asarray(cf["earliest_expected_arrival_eta"],   dtype=np.float32))
+        parts.append(np.asarray(cf["commitment_count"],         dtype=np.float32))
+        parts.append(np.asarray(cf["commitment_charge_demand"], dtype=np.float32))
 
-        # --- current_ev ---
         ev = obs["current_ev"]
-        parts.append(np.array([
-            float(ev["station_id"]),
-            float(ev["total_charge_demand"]),
-        ], dtype=np.float32))
+        station_onehot = np.zeros(num_stations, dtype=np.float32)
+        sid = int(ev["station_id"])
+        if 0 <= sid < num_stations:
+            station_onehot[sid] = 1.0
+        parts.append(station_onehot)
+        parts.append(np.array([float(ev["total_charge_demand"])], dtype=np.float32))
         ds_mask = np.zeros(num_stations, dtype=np.float32)
-        for sid in ev["downstream_stations"]:
-            if 0 <= int(sid) < num_stations:
-                ds_mask[int(sid)] = 1.0
+        for downstream_id in ev["downstream_stations"]:
+            if 0 <= int(downstream_id) < num_stations:
+                ds_mask[int(downstream_id)] = 1.0
         parts.append(ds_mask)
 
-        # --- future_demand ---
         parts.append(np.asarray(obs["future_demand"], dtype=np.float32)[:num_stations])
 
         return np.concatenate(parts)

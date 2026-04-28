@@ -129,6 +129,9 @@ def _build_run_config_payload(args: argparse.Namespace) -> dict[str, object]:
         "online_buffer_size": int(args.online_buffer_size),
         "updates_per_step": int(args.updates_per_step),
         "start_training_after": int(args.start_training_after),
+        "reward_normalize_by": str(args.reward_normalize_by),
+        "reward_std_scaling": int(args.reward_std_scaling),
+        "reward_std_eps": float(args.reward_std_eps),
     }
 
 
@@ -240,6 +243,7 @@ def run_online_finetuning(
     rng: np.random.Generator,
     logger: StructuredRunLogger,
     save_path: str,
+    reward_scale_factor: float = 1.0,
 ) -> None:
     """Balanced dual-buffer online fine-tuning with prioritized offline replay."""
     env = build_episode_bank_env(
@@ -247,6 +251,7 @@ def run_online_finetuning(
         n_bins=args.n_bins,
         max_queue_len=args.max_queue_len,
         invalid_action_penalty=args.invalid_action_penalty,
+        reward_normalize_by=args.reward_normalize_by,
     )
     replay = BalancedReplayManager(
         offline_dataset=offline_dataset,
@@ -301,10 +306,11 @@ def run_online_finetuning(
 
             next_obs, reward, terminated, truncated, _ = env.step(action)
             done = bool(terminated or truncated)
+            scaled_reward = float(reward) * reward_scale_factor
             replay.add_online_transition(
                 observation=obs,
                 action=action,
-                reward=reward,
+                reward=scaled_reward,
                 next_observation=next_obs,
                 done=done,
                 action_mask=action_mask,
@@ -423,6 +429,7 @@ def run_online_finetuning(
                     n_bins=args.n_bins,
                     max_queue_len=args.max_queue_len,
                     seed=args.seed + 10_000 + step,
+                    reward_normalize_by=args.reward_normalize_by,
                 )
                 evaluation_payload = _build_eval_payload(
                     stage="eval",
@@ -464,6 +471,33 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--n_bins", type=int, default=21)
     parser.add_argument("--max_queue_len", type=int, default=10)
     parser.add_argument("--invalid_action_penalty", type=float, default=0.0)
+    parser.add_argument(
+        "--reward_normalize_by",
+        type=str,
+        default="vehicle_count",
+        choices=("none", "total_demand", "vehicle_count"),
+        help=(
+            "Per-episode reward normalization (option 2). 'vehicle_count' divides each step's "
+            "reward by the episode's number of vehicles to remove episode-size variance; "
+            "'total_demand' divides by the total charge demand instead."
+        ),
+    )
+    parser.add_argument(
+        "--reward_std_scaling",
+        type=int,
+        default=1,
+        choices=(0, 1),
+        help=(
+            "If 1, scale all rewards (offline + online) by 1/std computed on the offline "
+            "dataset. Pure scale (no mean shift), preserves Bellman consistency."
+        ),
+    )
+    parser.add_argument(
+        "--reward_std_eps",
+        type=float,
+        default=1e-3,
+        help="Floor on the reward std to avoid division blow-up when rewards are degenerate.",
+    )
 
     parser.add_argument("--offline_epochs", type=int, default=100)
     parser.add_argument("--online_steps", type=int, default=500_000)
@@ -566,6 +600,12 @@ def main() -> None:
 
     if args.offline_dataset_cache and Path(args.offline_dataset_cache).exists():
         print(f"  Loading cached offline dataset from '{args.offline_dataset_cache}'")
+        if args.reward_normalize_by != "none":
+            print(
+                f"  WARNING: cache was built without metadata about reward_normalize_by; "
+                f"current run requests '{args.reward_normalize_by}'. Delete the cache if "
+                f"normalization mode differs from when the cache was created."
+            )
         offline_dataset = TransitionDataset.load(args.offline_dataset_cache)
     else:
         offline_dataset = load_offline_dataset(
@@ -575,12 +615,33 @@ def main() -> None:
             max_queue_len=args.max_queue_len,
             seed=args.seed,
             limit_episodes=args.offline_limit_episodes,
+            reward_normalize_by=args.reward_normalize_by,
         )
         if args.offline_dataset_cache:
             cache_path = Path(args.offline_dataset_cache)
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             offline_dataset.save(cache_path)
             print(f"  Cached offline dataset -> {cache_path}")
+
+    reward_scale_factor = 1.0
+    if int(args.reward_std_scaling) == 1 and len(offline_dataset) > 0:
+        reward_std = float(np.std(offline_dataset.rewards.astype(np.float64)))
+        denom = max(reward_std, float(args.reward_std_eps))
+        reward_scale_factor = 1.0 / denom
+        offline_dataset.rewards = (
+            offline_dataset.rewards.astype(np.float64) * reward_scale_factor
+        ).astype(np.float32)
+        print(
+            f"  Reward std scaling: raw_std={reward_std:.6g}"
+            f"  scale_factor={reward_scale_factor:.6g}"
+            f"  (offline rewards rescaled in-place; same factor applied online)"
+        )
+    elif int(args.reward_std_scaling) == 1:
+        print("  Reward std scaling requested but offline dataset is empty; skipping.")
+    print(
+        f"  Reward normalization: by={args.reward_normalize_by}"
+        f"  std_scaling={'on' if int(args.reward_std_scaling) == 1 else 'off'}"
+    )
 
     if args.pretrained_checkpoint:
         print(f"  Loading pretrained O2O-IQL checkpoint from '{args.pretrained_checkpoint}'")
@@ -597,6 +658,12 @@ def main() -> None:
             target_update_rate=args.target_update_rate,
             exp_adv_max=args.exp_adv_max,
             device=args.device,
+        )
+        obs_mean, obs_std = offline_dataset.compute_obs_stats()
+        agent.set_observation_stats(obs_mean, obs_std)
+        print(
+            f"  Installed obs z-score: mean range=[{obs_mean.min():.3g}, {obs_mean.max():.3g}]"
+            f"  std range=[{obs_std.min():.3g}, {obs_std.max():.3g}]"
         )
         run_offline_pretraining(
             agent=agent,
@@ -621,6 +688,7 @@ def main() -> None:
         n_bins=args.n_bins,
         max_queue_len=args.max_queue_len,
         seed=args.seed + 5_000,
+        reward_normalize_by=args.reward_normalize_by,
     )
     offline_eval_payload = _build_eval_payload(
         stage="offline_eval",
@@ -649,6 +717,7 @@ def main() -> None:
             rng=rng,
             logger=logger,
             save_path=args.save_path,
+            reward_scale_factor=reward_scale_factor,
         )
 
     final_path = os.path.join(

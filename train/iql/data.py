@@ -49,6 +49,24 @@ class TransitionDataset:
             "action_masks": self.action_masks[idx],
         }
 
+    def compute_obs_stats(self, eps: float = 1e-3) -> tuple[np.ndarray, np.ndarray]:
+        """Per-dim mean/std of observations; std<eps is clamped to 1.0.
+
+        Used to install frozen z-score buffers on the IQL agent so the network
+        sees inputs with comparable scale across the heterogeneous obs vector.
+        Stats are computed once on the offline transition buffer and reused
+        unchanged through the entire offline + online phase.
+        """
+        if len(self) == 0:
+            return (
+                np.zeros(self.obs_dim, dtype=np.float32),
+                np.ones(self.obs_dim, dtype=np.float32),
+            )
+        mean = self.observations.mean(axis=0).astype(np.float32)
+        std = self.observations.std(axis=0).astype(np.float32)
+        std = np.where(std < float(eps), np.float32(1.0), std)
+        return mean, std
+
     def save(self, path: str | Path) -> None:
         np.savez_compressed(
             path,
@@ -78,6 +96,7 @@ def _build_wrapped_episode_env(
     n_bins: int,
     max_queue_len: int,
     invalid_action_penalty: float = 0.0,
+    reward_normalize_by: str = "none",
 ) -> FlatObsWrapper:
     """Create a flat-observation env without SB3 wrappers for direct control."""
     env = EpisodeBankChargingEnv(
@@ -88,6 +107,7 @@ def _build_wrapped_episode_env(
         min_second_charge=float(MIN_SEG),
         n_bins=int(n_bins),
         invalid_action_penalty=float(invalid_action_penalty),
+        reward_normalize_by=str(reward_normalize_by),
     )
     return FlatObsWrapper(env, max_queue_len=max_queue_len)
 
@@ -97,6 +117,7 @@ def build_single_episode_env(
     n_bins: int = 21,
     max_queue_len: int = 10,
     invalid_action_penalty: float = 0.0,
+    reward_normalize_by: str = "none",
 ) -> FlatObsWrapper:
     """Create a deterministic one-episode env for fixed evaluation or rollout."""
     return _build_wrapped_episode_env(
@@ -104,6 +125,7 @@ def build_single_episode_env(
         n_bins=n_bins,
         max_queue_len=max_queue_len,
         invalid_action_penalty=invalid_action_penalty,
+        reward_normalize_by=reward_normalize_by,
     )
 
 
@@ -112,6 +134,7 @@ def build_episode_bank_env(
     n_bins: int = 21,
     max_queue_len: int = 10,
     invalid_action_penalty: float = 0.0,
+    reward_normalize_by: str = "none",
 ) -> FlatObsWrapper:
     """Create a stochastic env that samples episodes from the supplied bank."""
     return _build_wrapped_episode_env(
@@ -119,6 +142,7 @@ def build_episode_bank_env(
         n_bins=n_bins,
         max_queue_len=max_queue_len,
         invalid_action_penalty=invalid_action_penalty,
+        reward_normalize_by=reward_normalize_by,
     )
 
 
@@ -139,6 +163,7 @@ def collect_expert_transitions(
     n_bins: int = 21,
     max_queue_len: int = 10,
     seed: int = 0,
+    reward_normalize_by: str = "none",
 ) -> TransitionDataset:
     """Roll out expert actions episode by episode and collect full transitions.
 
@@ -161,6 +186,7 @@ def collect_expert_transitions(
             vehicles=vehicles,
             n_bins=n_bins,
             max_queue_len=max_queue_len,
+            reward_normalize_by=reward_normalize_by,
         )
         try:
             obs, _ = env.reset(seed=seed + episode_idx)
@@ -223,6 +249,7 @@ def load_offline_dataset(
     max_queue_len: int = 10,
     seed: int = 0,
     limit_episodes: int = 0,
+    reward_normalize_by: str = "none",
 ) -> TransitionDataset:
     """Load paired expert data and turn it into a transition dataset."""
     paired_data = load_paired_dataset(
@@ -237,4 +264,5 @@ def load_offline_dataset(
         n_bins=n_bins,
         max_queue_len=max_queue_len,
         seed=seed,
+        reward_normalize_by=reward_normalize_by,
     )

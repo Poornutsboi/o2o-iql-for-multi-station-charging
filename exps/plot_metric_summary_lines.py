@@ -34,6 +34,11 @@ METHOD_COLORS = {
     "station-assignment": "#CC79A7",
 }
 LEGEND_LABEL_ORDER = ["NS", "SA", "PPO", "EOI", "O2O-IQL"]
+SCENARIO_LABELS = {
+    "normal": "Normal",
+    "bias": "Concentrated",
+    "extreme": "Extreme",
+}
 
 
 def load_metric_table(csv_path: Path) -> pd.DataFrame:
@@ -86,7 +91,7 @@ def plot_metric_comparison(results_dir: Path = RESULTS_DIR, output_path: Path = 
                 values,
                 label=METHOD_LABELS.get(method, method),
                 color=color,
-                linewidth=1.7 if method == "o2o-iql" else 1.45,
+                linewidth=1.5 if method == "o2o-iql" else 1.2,
             )
 
         boundaries, centers = _scenario_boundaries(columns)
@@ -97,7 +102,7 @@ def plot_metric_comparison(results_dir: Path = RESULTS_DIR, output_path: Path = 
                 ax.text(
                     center + 1,
                     1.04,
-                    scenario.capitalize(),
+                    SCENARIO_LABELS.get(scenario, scenario.capitalize()),
                     transform=ax.get_xaxis_transform(),
                     ha="center",
                     va="bottom",

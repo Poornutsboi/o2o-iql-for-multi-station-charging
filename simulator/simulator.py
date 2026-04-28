@@ -45,6 +45,13 @@ class SimulatorCore:
     def station_ids(self) -> list[int]:
         return sorted(int(station_id) for station_id in self._station_specs)
 
+    @property
+    def station_capacities(self) -> dict[int, int]:
+        return {
+            int(station_id): int(spec.charge_capacity)
+            for station_id, spec in self._station_specs.items()
+        }
+
     def submit_arrival(self, request: ChargingRequest) -> ChargingAssignment:
         self._validate_request(request)
 

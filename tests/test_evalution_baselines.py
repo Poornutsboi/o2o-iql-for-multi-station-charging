@@ -18,11 +18,7 @@ class StationAssignmentBaselineTests(unittest.TestCase):
             num_stations=3,
             _current_observation=lambda: {
                 "sim_state": {
-                    "stations": [
-                        {"queue_waiting_time": [10.0, 10.0]},
-                        {"queue_waiting_time": [30.0, 30.0, 30.0]},
-                        {"queue_waiting_time": []},
-                    ]
+                    "ev_queueing": [2, 3, 0],
                 }
             },
         )
@@ -35,11 +31,7 @@ class StationAssignmentBaselineTests(unittest.TestCase):
             num_stations=3,
             _current_observation=lambda: {
                 "sim_state": {
-                    "stations": [
-                        {"queue_waiting_time": [10.0, 10.0]},
-                        {"queue_waiting_time": []},
-                        {"queue_waiting_time": [40.0]},
-                    ]
+                    "ev_queueing": [2, 0, 1],
                 }
             },
         )
@@ -55,11 +47,7 @@ class StationAssignmentBaselineTests(unittest.TestCase):
             np_random=rng,
             _current_observation=lambda: {
                 "sim_state": {
-                    "stations": [
-                        {"queue_waiting_time": list(range(21))},
-                        {"queue_waiting_time": []},
-                        {"queue_waiting_time": []},
-                    ]
+                    "ev_queueing": [21, 0, 0],
                 }
             },
         )

@@ -37,7 +37,9 @@ class ChargingEnvTests(unittest.TestCase):
 
         self.assertIsInstance(env.action_space, spaces.Discrete)
         self.assertEqual(env.action_space.n, 20)
-        self.assertEqual(observation["sim_state"]["metrics"]["queue_time"], [0.0] * 3)
+        self.assertEqual(observation["sim_state"]["ev_queueing"], [0] * 3)
+        self.assertEqual(observation["sim_state"]["max_queue_time"], [0.0] * 3)
+        self.assertEqual(observation["sim_state"]["queue_demand"], [0.0] * 3)
         np.testing.assert_array_equal(env.action_masks(), expected)
         self.assertEqual(info["total_wait"], 0.0)
 
@@ -71,10 +73,17 @@ class ChargingEnvTests(unittest.TestCase):
         self.assertEqual(observation["current_ev"]["station_id"], 0)
         self.assertEqual(observation["current_ev"]["total_charge_demand"], 10.0)
         self.assertEqual(observation["current_ev"]["downstream_stations"], (2,))
-        self.assertEqual(observation["sim_state"]["clock"], 0.0)
-        self.assertEqual(observation["sim_state"]["metrics"]["queue_time"], [0.0] * 7)
-        station_payload = observation["sim_state"]["stations"][0]
-        self.assertEqual(set(station_payload.keys()), {"charger_status", "queue_waiting_time", "queue_demand"})
+        self.assertEqual(
+            set(observation["sim_state"].keys()),
+            {"ev_queueing", "max_queue_time", "queue_demand"},
+        )
+        self.assertEqual(observation["sim_state"]["ev_queueing"], [0] * 7)
+        self.assertEqual(observation["sim_state"]["max_queue_time"], [0.0] * 7)
+        self.assertEqual(observation["sim_state"]["queue_demand"], [0.0] * 7)
+        self.assertEqual(
+            set(observation["commitment_features"].keys()),
+            {"commitment_count", "commitment_charge_demand"},
+        )
         self.assertEqual(info["total_wait"], 0.0)
 
     def test_action_masks_match_maskable_action_enumerator(self) -> None:
@@ -176,7 +185,7 @@ class ChargingEnvTests(unittest.TestCase):
         self.assertEqual(reward, 0.0)
         self.assertTrue(terminated)
         self.assertFalse(truncated)
-        self.assertEqual(observation["sim_state"]["metrics"]["ev_served"], [1, 0, 1])
+        self.assertEqual(list(env._sim.get_metrics().ev_served), [1, 0, 1])
         self.assertEqual(observation["commitment_features"]["commitment_count"], [0, 0, 0])
         self.assertEqual(info["total_wait"], 0.0)
 

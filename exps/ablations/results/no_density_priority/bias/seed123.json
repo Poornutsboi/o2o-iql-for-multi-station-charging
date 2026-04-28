@@ -1,0 +1,67 @@
+{
+  "data_dir": "data\\train_dataset\\bias",
+  "split_name": "bias",
+  "variant": "no_density_priority",
+  "seed": 123,
+  "results": [
+    {
+      "n_eval_episodes": 10,
+      "mean_reward": -2206.095245717781,
+      "std_reward": 2093.34868453417,
+      "min_reward": -5579.964340965407,
+      "max_reward": 0.0,
+      "mean_ep_length": 329.8,
+      "std_ep_length": 121.14850391152173,
+      "mean_waiting_time": 5.368482614745153,
+      "std_waiting_time": 5.010682482811553,
+      "mean_p95_waiting_time": 21.53497905731201,
+      "mean_max_waiting_time": 27.290880358219148,
+      "mean_load_imbalance": 0.35943166898224704,
+      "invalid_action_rate": 0.0,
+      "invalid_action_count": 0,
+      "decision_step_count": 3298,
+      "episode_rewards": [
+        -3523.2488887116833,
+        -4526.531215265785,
+        0.0,
+        -130.10433439372522,
+        -3040.099305204949,
+        -796.1216975021814,
+        -159.77820058809408,
+        -0.17589485100498337,
+        -4304.928579694978,
+        -5579.964340965407
+      ],
+      "episode_lengths": [
+        378,
+        393,
+        107,
+        228,
+        516,
+        392,
+        233,
+        217,
+        369,
+        465
+      ],
+      "episode_names": [
+        "episode_0000.csv",
+        "episode_0001.csv",
+        "episode_0002.csv",
+        "episode_0003.csv",
+        "episode_0004.csv",
+        "episode_0005.csv",
+        "episode_0006.csv",
+        "episode_0007.csv",
+        "episode_0008.csv",
+        "episode_0009.csv"
+      ],
+      "label": "no_density_priority/seed123",
+      "variant": "no_density_priority",
+      "seed": 123,
+      "split_name": "bias",
+      "data_dir": "data\\train_dataset\\bias",
+      "checkpoint": "exps\\ablations\\runs\\no_density_priority\\seed123\\ckpt\\o2o_iql_best.pt"
+    }
+  ]
+}

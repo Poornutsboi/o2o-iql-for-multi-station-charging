@@ -56,6 +56,7 @@ def evaluate_agent(
     n_bins: int,
     max_queue_len: int,
     seed: int,
+    reward_normalize_by: str = "none",
 ) -> dict[str, float]:
     """Run deterministic evaluation on the first N fixed episodes."""
     rewards: list[float] = []
@@ -66,6 +67,7 @@ def evaluate_agent(
             vehicles=vehicles,
             n_bins=n_bins,
             max_queue_len=max_queue_len,
+            reward_normalize_by=reward_normalize_by,
         )
         try:
             obs, _ = env.reset(seed=seed + episode_idx)
@@ -374,6 +376,12 @@ def main() -> None:
             target_update_rate=args.target_update_rate,
             exp_adv_max=args.exp_adv_max,
             device=device,
+        )
+        obs_mean, obs_std = offline_dataset.compute_obs_stats()
+        agent.set_observation_stats(obs_mean, obs_std)
+        print(
+            f"  Installed obs z-score: mean range=[{obs_mean.min():.3g}, {obs_mean.max():.3g}]"
+            f"  std range=[{obs_std.min():.3g}, {obs_std.max():.3g}]"
         )
         run_offline_pretraining(
             agent=agent,

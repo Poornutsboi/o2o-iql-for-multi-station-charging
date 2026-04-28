@@ -116,7 +116,7 @@ class OrchestratorObservationTests(unittest.TestCase):
                 station_specs=[
                     StationSpec(station_id=0, charge_capacity=1),
                     StationSpec(station_id=1, charge_capacity=1),
-                    StationSpec(station_id=2, charge_capacity=1),
+                    StationSpec(station_id=2, charge_capacity=2),
                 ]
             ),
             demand_prediction_method="exponential-decay",
@@ -145,13 +145,12 @@ class OrchestratorObservationTests(unittest.TestCase):
 
         horizon = 15.0
         tau = 15.0
-        kernel_multiplier = 1.0 - math.exp(-horizon / tau)
+        rate_to_count = horizon / tau
 
-        expected_station_0 = math.exp(-(16.0 - 1.0) / tau) * kernel_multiplier
+        expected_station_0 = math.exp(-(16.0 - 1.0) / tau) * rate_to_count / 1.0
         expected_station_2 = (
-            math.exp(-(16.0 - 6.0) / tau) * kernel_multiplier
-            + math.exp(-(16.0 - 14.0) / tau) * kernel_multiplier
-        )
+            math.exp(-(16.0 - 6.0) / tau) + math.exp(-(16.0 - 14.0) / tau)
+        ) * rate_to_count / 2.0
 
         self.assertAlmostEqual(observation["future_demand"][0], expected_station_0, places=6)
         self.assertAlmostEqual(observation["future_demand"][1], 0.0, places=6)
@@ -183,7 +182,10 @@ class OrchestratorObservationTests(unittest.TestCase):
             ChargingRequest(vehicle_id=1, station_id=0, charge_duration=4.0, arrival_time=8.0)
         )
 
-        forecaster = DemandForecaster(station_ids=[0, 1])
+        forecaster = DemandForecaster(
+            station_ids=[0, 1],
+            station_capacities={0: 1, 1: 1},
+        )
         prediction = forecaster.predict(
             method="exponential-decay",
             now=10.0,
@@ -194,6 +196,6 @@ class OrchestratorObservationTests(unittest.TestCase):
             },
         )
 
-        expected_station_0 = math.exp(-(10.0 - 8.0) / 5.0) * (1.0 - math.exp(-10.0 / 5.0))
+        expected_station_0 = math.exp(-(10.0 - 8.0) / 5.0) * (10.0 / 5.0) / 1.0
         self.assertAlmostEqual(prediction[0], expected_station_0, places=6)
         self.assertAlmostEqual(prediction[1], 0.0, places=6)

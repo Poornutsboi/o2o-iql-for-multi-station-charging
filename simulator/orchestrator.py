@@ -53,9 +53,17 @@ def load_demand_vehicles_from_csv(csv_path: str | PathLike[str]) -> list[Vehicle
 
 
 class DemandForecaster:
-    def __init__(self, station_ids: list[int]) -> None:
+    def __init__(
+        self,
+        station_ids: list[int],
+        station_capacities: dict[int, int] | None = None,
+    ) -> None:
         self._station_ids = sorted(int(station_id) for station_id in station_ids)
         self._metric_size = 1 + max(self._station_ids)
+        self._station_capacities = {
+            int(station_id): int(capacity)
+            for station_id, capacity in (station_capacities or {}).items()
+        }
 
     def predict(
         self,
@@ -81,17 +89,26 @@ class DemandForecaster:
         config = params or {}
         horizon = float(config.get("horizon", 15.0))
         decay_tau = float(config.get("decay_tau", 15.0))
-        counts = [0.0 for _ in range(self._metric_size)]
-        kernel_multiplier = 1.0 - math.exp(-horizon / decay_tau)
+        weighted_counts = [0.0 for _ in range(self._metric_size)]
 
         for record in history_log.records():
             arrival_time = float(record.arrival_time)
             if arrival_time > float(now):
                 continue
             elapsed = float(now) - arrival_time
-            counts[int(record.station_id)] += math.exp(-elapsed / decay_tau) * kernel_multiplier
+            weighted_counts[int(record.station_id)] += math.exp(-elapsed / decay_tau)
 
-        return counts
+        # weighted_counts[s] = Σ exp(-(now - t)/τ); divide by τ to get the per-time
+        # arrival rate λ_s, multiply by the prediction window H to get the expected
+        # number of arrivals in [now, now+H], then normalize by station capacity.
+        rate_to_count = horizon / decay_tau
+        result = [0.0 for _ in range(self._metric_size)]
+        for station_id in range(self._metric_size):
+            capacity = int(self._station_capacities.get(station_id, 1))
+            if capacity <= 0:
+                continue
+            result[station_id] = weighted_counts[station_id] * rate_to_count / float(capacity)
+        return result
 
 
 class SplitChargingOrchestrator:
@@ -110,6 +127,7 @@ class SplitChargingOrchestrator:
         self.demand_prediction_method = str(demand_prediction_method)
         self.demand_forecaster = demand_forecaster or DemandForecaster(
             station_ids=self.simulator.station_ids,
+            station_capacities=self.simulator.station_capacities,
         )
 
     def build_observation(

@@ -1,0 +1,7 @@
+variant,label,n_raw_episode_points,n_curve_points,n_seeds_with_online_curve,max_step,final_curve_reward,tail_20pct_curve_reward_mean
+full_o2o_iql,Full O2O-IQL,2142,2136,3,199843,-3.3484298990268826,-5.698575711943843
+no_offline,No offline,1417,1417,2,199936,-11.237769125033866,-6.251800401093396
+no_dual_buffer,No dual buffer,2130,2120,3,199959,-6.1543808170909164,-5.652567485058651
+no_density_priority,No density priority,1750,1745,3,199984,-6.2664201977108815,-5.735660280524698
+no_anneal,No anneal,2170,2164,3,199973,-6.211232834914585,-6.423046729930536
+no_ucb,No UCB,2127,2123,3,199942,-6.083050677559913,-7.816400554461731

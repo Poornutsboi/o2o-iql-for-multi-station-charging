@@ -1,0 +1,94 @@
+{
+  "variants": [
+    "offline_only",
+    "no_offline",
+    "no_dual_buffer",
+    "no_density_priority",
+    "no_anneal"
+  ],
+  "splits": [
+    "bias"
+  ],
+  "seeds": [
+    42,
+    123,
+    2024
+  ],
+  "aggregate": {
+    "offline_only": {
+      "bias": {
+        "n_seeds": 3,
+        "mean_reward_mean": -4561.570371494566,
+        "mean_reward_std": 0.0,
+        "mean_reward_min": -4561.570371494566,
+        "mean_reward_max": -4561.570371494566,
+        "mean_ep_length_mean": 329.8,
+        "mean_waiting_time_mean": 11.311713069677353,
+        "mean_p95_waiting_time_mean": 45.0020637512207,
+        "mean_max_waiting_time_mean": 52.55438079833984,
+        "mean_load_imbalance_mean": 0.4830376017364169,
+        "invalid_action_rate_mean": 0.0
+      }
+    },
+    "no_offline": {
+      "bias": {
+        "n_seeds": 3,
+        "mean_reward_mean": -2239.3922893033823,
+        "mean_reward_std": 96.30777391893515,
+        "mean_reward_min": -2352.661730602141,
+        "mean_reward_max": -2117.257139443719,
+        "mean_ep_length_mean": 329.8,
+        "mean_waiting_time_mean": 5.584375669372579,
+        "mean_p95_waiting_time_mean": 20.395708337798716,
+        "mean_max_waiting_time_mean": 25.710897787412005,
+        "mean_load_imbalance_mean": 0.33894036428846364,
+        "invalid_action_rate_mean": 0.0
+      }
+    },
+    "no_dual_buffer": {
+      "bias": {
+        "n_seeds": 3,
+        "mean_reward_mean": -2160.4071741055054,
+        "mean_reward_std": 171.36623652417623,
+        "mean_reward_min": -2395.5596018038073,
+        "mean_reward_max": -1992.0659886579572,
+        "mean_ep_length_mean": 329.8,
+        "mean_waiting_time_mean": 5.312824782480796,
+        "mean_p95_waiting_time_mean": 20.859048978487653,
+        "mean_max_waiting_time_mean": 27.892358287175497,
+        "mean_load_imbalance_mean": 0.36021732520819,
+        "invalid_action_rate_mean": 0.0
+      }
+    },
+    "no_density_priority": {
+      "bias": {
+        "n_seeds": 3,
+        "mean_reward_mean": -2255.5525268225556,
+        "mean_reward_std": 200.0331627829588,
+        "mean_reward_min": -2521.4976310102493,
+        "mean_reward_max": -2039.0647037396368,
+        "mean_ep_length_mean": 329.8,
+        "mean_waiting_time_mean": 5.514721719259008,
+        "mean_p95_waiting_time_mean": 20.880328210194907,
+        "mean_max_waiting_time_mean": 26.99838700691859,
+        "mean_load_imbalance_mean": 0.35044555932550464,
+        "invalid_action_rate_mean": 0.0
+      }
+    },
+    "no_anneal": {
+      "bias": {
+        "n_seeds": 3,
+        "mean_reward_mean": -2047.6491569994614,
+        "mean_reward_std": 74.0394920938835,
+        "mean_reward_min": -2147.846436650187,
+        "mean_reward_max": -1971.2228046409887,
+        "mean_ep_length_mean": 329.8,
+        "mean_waiting_time_mean": 5.049553318197528,
+        "mean_p95_waiting_time_mean": 19.964487528800962,
+        "mean_max_waiting_time_mean": 28.008414268493652,
+        "mean_load_imbalance_mean": 0.3166544669740516,
+        "invalid_action_rate_mean": 0.0
+      }
+    }
+  }
+}
